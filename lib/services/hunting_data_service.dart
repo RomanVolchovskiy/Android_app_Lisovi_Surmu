@@ -28,6 +28,9 @@ class HuntingDataService {
           .toList();
     } else {
       await getAllSignals();
+      // Зберігаємо дефолтні сигнали в базу при першому запуску
+      final signalsJson = _signals.map((s) => s.toJson()).toList();
+      await StorageManager.saveHuntingSignals(signalsJson);
     }
 
     final List<Map<String, dynamic>>? loadedMaterials =
