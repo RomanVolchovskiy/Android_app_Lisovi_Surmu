@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bash:*)",
+      "Bash(git:*)",
+      "Bash(cmd.exe:*)",
+      "Bash(powershell.exe:*)",
+      "Bash(/d/flutter/bin/cache/dart-sdk/bin/dart.exe:*)",
+      "Bash(python3:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(export:*)",
+      "Bash(\"/c/Users/hp/AppData/Local/Android/Sdk/platform-tools/adb.exe\" devices:*)",
+      "Bash(\"/c/Users/hp/AppData/Local/Android/Sdk/platform-tools/adb.exe\" logcat:*)",
+      "Bash(\"$ADB\" logcat:*)",
+      "Bash(python:*)",
+      "Bash(taskkill:*)",
+      "Bash(\"$ADB\" install:*)",
+      "Bash(PUB_CACHE=\"D:/pub-cache\" bash:*)"
+    ]
+  }
+}

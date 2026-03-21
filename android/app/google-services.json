@@ -1,0 +1,77 @@
+{
+  "project_info": {
+    "project_number": "718598030499",
+    "firebase_url": "https://huntingsignals-default-rtdb.firebaseio.com",
+    "project_id": "huntingsignals",
+    "storage_bucket": "huntingsignals.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:718598030499:android:66230f9e244aa45b0f6b16",
+        "android_client_info": {
+          "package_name": "com.huntingsignals"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAVSYGp-YOkrkdGwSadfmCuR64xkhlI-pw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:718598030499:android:fbc539bdc5f6216e0f6b16",
+        "android_client_info": {
+          "package_name": "com.huntingsignals.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAVSYGp-YOkrkdGwSadfmCuR64xkhlI-pw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:718598030499:android:2b432caf447d173b0f6b16",
+        "android_client_info": {
+          "package_name": "com.huntingsignals.audio"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "718598030499-ralav2895247ad2h1m4sb035mnocijsv.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.huntingsignals.audio",
+            "certificate_hash": "abcdef1234567890abcdef1234567890abcdef12"
+          }
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAVSYGp-YOkrkdGwSadfmCuR64xkhlI-pw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
