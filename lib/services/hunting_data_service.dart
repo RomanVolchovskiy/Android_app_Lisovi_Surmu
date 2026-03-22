@@ -1,50 +1,44 @@
 import 'package:flutter/material.dart';
 import 'package:hunting_signals/models/hunting_models.dart';
+import 'package:hunting_signals/services/local_storage_service.dart';
 import 'package:hunting_signals/services/storage_manager.dart';
 
 class HuntingDataService {
   static List<HuntingSignal> _signals = [];
   static List<EducationMaterial> _educationMaterials = [];
 
-  /// Ініціалізація даних з пам'яті (Google Drive або Local)
+  /// Ініціалізація даних: Firebase → локальний кеш → дефолтні значення
   static Future<void> loadPersistedData() async {
     final List<Map<String, dynamic>>? loadedSignals =
         await StorageManager.loadHuntingSignals();
+
     if (loadedSignals != null && loadedSignals.isNotEmpty) {
-      // Міграція: виправляємо старі audioUrl на актуальний Google Drive
-      const newAudio =
-          'https://drive.google.com/uc?export=download&id=1jHLszN2Uvkkbfu4-D9HnN7O_JDsIioLF';
-      final migrated = loadedSignals.map((json) {
-        final url = json['audioUrl'] as String?;
-        if (url == null ||
-            url.contains('gathering.mp3') ||
-            url == 'assets/audio/1.mp3') {
-          return {...json, 'audioUrl': newAudio};
-        }
-        return json;
-      }).toList();
-      _signals = migrated
-          .map((json) => HuntingSignal.fromJson(json))
-          .toList();
+      _signals =
+          loadedSignals.map((json) => HuntingSignal.fromJson(json)).toList();
     } else {
+      // Firebase порожній або офлайн — завантажуємо дефолтні
       await getAllSignals();
-      // Зберігаємо дефолтні сигнали в базу при першому запуску
+      // Кешуємо локально (не пишемо в Firebase — адмін публікує вручну)
       final signalsJson = _signals.map((s) => s.toJson()).toList();
-      await StorageManager.saveHuntingSignals(signalsJson);
+      await LocalStorageService.saveHuntingSignals(signalsJson);
     }
 
     final List<Map<String, dynamic>>? loadedMaterials =
         await StorageManager.loadEducationalMaterials();
+
     if (loadedMaterials != null && loadedMaterials.isNotEmpty) {
       _educationMaterials = loadedMaterials
           .map((json) => EducationMaterial.fromJson(json))
           .toList();
     } else {
       await getEducationMaterials();
+      final materialsJson = _educationMaterials.map((m) => m.toJson()).toList();
+      await LocalStorageService.saveEducationalMaterials(materialsJson);
     }
   }
 
-  /// ✅ МЕТОД ДЛЯ КАТЕГОРІЙ (Повернуто для CategoriesScreen)
+  // ── КАТЕГОРІЇ ──────────────────────────────────────────────────────
+
   static Future<List<SignalCategory>> getCategories() async {
     return [
       SignalCategory(
@@ -78,52 +72,7 @@ class HuntingDataService {
     ];
   }
 
-  static Future<bool> addEducationMaterial(EducationMaterial material) async {
-    _educationMaterials.add(material);
-    final materialsJson = _educationMaterials.map((m) => m.toJson()).toList();
-    return await StorageManager.saveEducationalMaterials(materialsJson);
-  }
-
-  static Future<bool> addSignal(HuntingSignal signal) async {
-    _signals.add(signal);
-    final signalsJson = _signals.map((s) => s.toJson()).toList();
-    return await StorageManager.saveHuntingSignals(signalsJson);
-  }
-
-  static Future<bool> updateSignal(HuntingSignal signal) async {
-    await getAllSignals();
-    final index = _signals.indexWhere((s) => s.id == signal.id);
-    if (index == -1) return false;
-    _signals[index] = signal;
-    final signalsJson = _signals.map((s) => s.toJson()).toList();
-    return await StorageManager.saveHuntingSignals(signalsJson);
-  }
-
-  static Future<bool> deleteSignal(String id) async {
-    await getAllSignals();
-    _signals.removeWhere((s) => s.id == id);
-    final signalsJson = _signals.map((s) => s.toJson()).toList();
-    return await StorageManager.saveHuntingSignals(signalsJson);
-  }
-
-  static Future<bool> updateMaterial(EducationMaterial material) async {
-    await getEducationMaterials();
-    final index = _educationMaterials.indexWhere((m) => m.id == material.id);
-    if (index == -1) return false;
-    _educationMaterials[index] = material;
-    final materialsJson = _educationMaterials.map((m) => m.toJson()).toList();
-    return await StorageManager.saveEducationalMaterials(materialsJson);
-  }
-
-  static Future<bool> deleteMaterial(String id) async {
-    await getEducationMaterials();
-    _educationMaterials.removeWhere((m) => m.id == id);
-    final materialsJson = _educationMaterials.map((m) => m.toJson()).toList();
-    return await StorageManager.saveEducationalMaterials(materialsJson);
-  }
-
-  static const String _driveAudio1 =
-      'https://drive.google.com/uc?export=download&id=1jHLszN2Uvkkbfu4-D9HnN7O_JDsIioLF';
+  // ── СИГНАЛИ — CRUD ─────────────────────────────────────────────────
 
   static Future<List<HuntingSignal>> getAllSignals() async {
     if (_signals.isEmpty) {
@@ -133,7 +82,8 @@ class HuntingDataService {
           name: 'Сигнал збору',
           category: 'Інформаційні',
           description: 'Сигнал для збору мисливців перед початком полювання',
-          audioUrl: _driveAudio1,
+          audioUrl:
+              'https://drive.google.com/uc?export=download&id=1669WJ6zNDljlUHL6VpZ_MVA9Acf1C39X',
           duration: 15,
         ),
         HuntingSignal(
@@ -141,7 +91,8 @@ class HuntingDataService {
           name: 'Початок полювання',
           category: 'Організаційні',
           description: 'Сигнал для оголошення початку полювання',
-          audioUrl: _driveAudio1,
+          audioUrl:
+              'https://drive.google.com/uc?export=download&id=1669WJ6zNDljlUHL6VpZ_MVA9Acf1C39X',
           duration: 15,
         ),
         HuntingSignal(
@@ -149,7 +100,8 @@ class HuntingDataService {
           name: 'Гончі на слід',
           category: 'Сигнали покоту',
           description: 'Сигнал для гончих — знайдено слід звіра',
-          audioUrl: _driveAudio1,
+          audioUrl:
+              'https://drive.google.com/uc?export=download&id=1669WJ6zNDljlUHL6VpZ_MVA9Acf1C39X',
           duration: 15,
         ),
         HuntingSignal(
@@ -157,13 +109,45 @@ class HuntingDataService {
           name: 'Святковий фанфар',
           category: 'Святкові',
           description: 'Урочистий сигнал для святкових мисливських заходів',
-          audioUrl: _driveAudio1,
+          audioUrl:
+              'https://drive.google.com/uc?export=download&id=1669WJ6zNDljlUHL6VpZ_MVA9Acf1C39X',
           duration: 15,
         ),
       ];
     }
     return _signals;
   }
+
+  /// Додати новий сигнал → зберігається в Firebase автоматично
+  static Future<bool> addSignal(HuntingSignal signal) async {
+    _signals.add(signal);
+    return await StorageManager.upsertSignal(signal.toJson());
+  }
+
+  /// Оновити сигнал → оновлюється в Firebase автоматично
+  static Future<bool> updateSignal(HuntingSignal signal) async {
+    await getAllSignals();
+    final index = _signals.indexWhere((s) => s.id == signal.id);
+    if (index == -1) return false;
+    _signals[index] = signal;
+    return await StorageManager.upsertSignal(signal.toJson());
+  }
+
+  /// Видалити сигнал → видаляється з Firebase автоматично
+  static Future<bool> deleteSignal(String id) async {
+    await getAllSignals();
+    _signals.removeWhere((s) => s.id == id);
+    return await StorageManager.removeSignal(id);
+  }
+
+  static Future<List<HuntingSignal>> getSignalsByCategory(
+    String category,
+  ) async {
+    final allSignals = await getAllSignals();
+    return allSignals.where((signal) => signal.category == category).toList();
+  }
+
+  // ── НАВЧАЛЬНІ МАТЕРІАЛИ — CRUD ─────────────────────────────────────
 
   static Future<List<EducationMaterial>> getEducationMaterials() async {
     if (_educationMaterials.isEmpty) {
@@ -184,10 +168,25 @@ class HuntingDataService {
     return _educationMaterials;
   }
 
-  static Future<List<HuntingSignal>> getSignalsByCategory(
-    String category,
-  ) async {
-    final allSignals = await getAllSignals();
-    return allSignals.where((signal) => signal.category == category).toList();
+  /// Додати матеріал → зберігається в Firebase автоматично
+  static Future<bool> addEducationMaterial(EducationMaterial material) async {
+    _educationMaterials.add(material);
+    return await StorageManager.upsertMaterial(material.toJson());
+  }
+
+  /// Оновити матеріал → оновлюється в Firebase автоматично
+  static Future<bool> updateMaterial(EducationMaterial material) async {
+    await getEducationMaterials();
+    final index = _educationMaterials.indexWhere((m) => m.id == material.id);
+    if (index == -1) return false;
+    _educationMaterials[index] = material;
+    return await StorageManager.upsertMaterial(material.toJson());
+  }
+
+  /// Видалити матеріал → видаляється з Firebase автоматично
+  static Future<bool> deleteMaterial(String id) async {
+    await getEducationMaterials();
+    _educationMaterials.removeWhere((m) => m.id == id);
+    return await StorageManager.removeMaterial(id);
   }
 }

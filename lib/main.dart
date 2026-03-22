@@ -1,4 +1,6 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:hunting_signals/services/hunting_data_service.dart';
 import 'package:hunting_signals/services/storage_manager.dart';
 import 'screens/main_navigation.dart';
 import 'screens/admin_login_screen.dart';
@@ -12,19 +14,12 @@ import 'theme/hunting_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Initialize storage (choose your preferred storage type)
-  await _initializeStorage();
-
+  await Firebase.initializeApp();
+  await StorageManager.initialize(storageType: StorageType.firebase);
+  await HuntingDataService.loadPersistedData();
   runApp(const HuntingSignalsApp());
 }
 
-/// Initialize storage - you can choose between different storage options
-Future<void> _initializeStorage() async {
-  await StorageManager.initialize(storageType: StorageType.local);
-}
-
-/// Main application class
 class HuntingSignalsApp extends StatelessWidget {
   const HuntingSignalsApp({super.key});
 

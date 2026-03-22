@@ -59,7 +59,9 @@ class LocalStorageService {
       if (_hiveBox != null && _hiveBox!.containsKey(_signalsKey)) {
         final data = _hiveBox!.get(_signalsKey);
         if (data is List) {
-          return List<Map<String, dynamic>>.from(data);
+          final jsonStr = jsonEncode(data);
+          final decoded = jsonDecode(jsonStr) as List;
+          return decoded.map((item) => Map<String, dynamic>.from(item as Map)).toList();
         }
       }
 
@@ -147,7 +149,9 @@ class LocalStorageService {
       if (_hiveBox != null && _hiveBox!.containsKey(_materialsKey)) {
         final data = _hiveBox!.get(_materialsKey);
         if (data is List) {
-          return List<Map<String, dynamic>>.from(data);
+          final jsonStr = jsonEncode(data);
+          final decoded = jsonDecode(jsonStr) as List;
+          return decoded.map((item) => Map<String, dynamic>.from(item as Map)).toList();
         }
       }
 

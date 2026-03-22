@@ -1,22 +1,19 @@
 import 'package:flutter/material.dart';
 
-import 'google_drive_service.dart';
+import 'firebase_service.dart';
 import 'local_storage_service.dart';
 
 enum StorageType { local, googleDrive, firebase }
 
 class StorageManager {
-  static StorageType _currentStorage = StorageType.googleDrive;
+  static StorageType _currentStorage = StorageType.firebase;
 
   static Future<bool> initialize({
-    StorageType storageType = StorageType.googleDrive,
+    StorageType storageType = StorageType.firebase,
   }) async {
     try {
       _currentStorage = storageType;
       await LocalStorageService.initialize();
-      if (storageType == StorageType.googleDrive) {
-        await GoogleDriveService.initialize();
-      }
       return true;
     } catch (e) {
       debugPrint('StorageManager init error: $e');
@@ -30,156 +27,142 @@ class StorageManager {
 
   static StorageType get currentStorage => _currentStorage;
 
-  // ─── СИГНАЛИ ───────────────────────────────────────────────────
+  // ── LOAD ───────────────────────────────────────────────────────────
+  // Спочатку з Firebase, потім локальний кеш як резервний варіант
+
+  static Future<List<Map<String, dynamic>>?> loadHuntingSignals() async {
+    if (_currentStorage == StorageType.firebase) {
+      try {
+        final data = await FirebaseService.loadSignals();
+        if (data != null && data.isNotEmpty) {
+          await LocalStorageService.saveHuntingSignals(data);
+          return data;
+        }
+      } catch (e) {
+        debugPrint('Firebase load signals failed, using local cache: $e');
+      }
+    }
+    return await LocalStorageService.loadHuntingSignals();
+  }
+
+  static Future<List<Map<String, dynamic>>?> loadEducationalMaterials() async {
+    if (_currentStorage == StorageType.firebase) {
+      try {
+        final data = await FirebaseService.loadMaterials();
+        if (data != null && data.isNotEmpty) {
+          await LocalStorageService.saveEducationalMaterials(data);
+          return data;
+        }
+      } catch (e) {
+        debugPrint('Firebase load materials failed, using local cache: $e');
+      }
+    }
+    return await LocalStorageService.loadEducationalMaterials();
+  }
+
+  // ── SAVE (тільки локальний кеш — для першого завантаження) ─────────
+  // Firebase оновлюється через upsertSignal / upsertMaterial
 
   static Future<bool> saveHuntingSignals(
     List<Map<String, dynamic>> signals,
   ) async {
-    try {
-      // Завжди зберігаємо локально
-      await LocalStorageService.saveHuntingSignals(signals);
-
-      // Якщо Google Drive — синхронізуємо
-      if (_currentStorage == StorageType.googleDrive) {
-        final allData = await _buildDataBundle(signals: signals);
-        final id = await GoogleDriveService.saveData(allData);
-        return id != null;
-      }
-      return true;
-    } catch (e) {
-      debugPrint('Error saving signals: $e');
-      return false;
-    }
+    return await LocalStorageService.saveHuntingSignals(signals);
   }
-
-  static Future<List<Map<String, dynamic>>?> loadHuntingSignals() async {
-    try {
-      if (_currentStorage == StorageType.googleDrive) {
-        final data = await GoogleDriveService.loadData();
-        if (data != null && data.containsKey('signals')) {
-          final signals = List<Map<String, dynamic>>.from(data['signals']);
-          // Кешуємо локально
-          await LocalStorageService.saveHuntingSignals(signals);
-          return signals;
-        }
-      }
-      return await LocalStorageService.loadHuntingSignals();
-    } catch (e) {
-      debugPrint('Error loading signals: $e');
-      return await LocalStorageService.loadHuntingSignals();
-    }
-  }
-
-  // ─── НАВЧАЛЬНІ МАТЕРІАЛИ ────────────────────────────────────────
 
   static Future<bool> saveEducationalMaterials(
     List<Map<String, dynamic>> materials,
   ) async {
-    try {
-      await LocalStorageService.saveEducationalMaterials(materials);
-
-      if (_currentStorage == StorageType.googleDrive) {
-        final allData = await _buildDataBundle(materials: materials);
-        final id = await GoogleDriveService.saveData(allData);
-        return id != null;
-      }
-      return true;
-    } catch (e) {
-      debugPrint('Error saving materials: $e');
-      return false;
-    }
+    return await LocalStorageService.saveEducationalMaterials(materials);
   }
 
-  static Future<List<Map<String, dynamic>>?> loadEducationalMaterials() async {
-    try {
-      if (_currentStorage == StorageType.googleDrive) {
-        final data = await GoogleDriveService.loadData();
-        if (data != null && data.containsKey('materials')) {
-          final materials = List<Map<String, dynamic>>.from(data['materials']);
-          await LocalStorageService.saveEducationalMaterials(materials);
-          return materials;
-        }
-      }
-      return await LocalStorageService.loadEducationalMaterials();
-    } catch (e) {
-      debugPrint('Error loading materials: $e');
-      return await LocalStorageService.loadEducationalMaterials();
+  // ── UPSERT / REMOVE (admin writes — синхронізуються з Firebase) ────
+
+  static Future<bool> upsertSignal(Map<String, dynamic> signal) async {
+    // Оновлюємо локальний кеш
+    final signals = await LocalStorageService.loadHuntingSignals() ?? [];
+    final idx = signals.indexWhere((s) => s['id'] == signal['id']);
+    if (idx >= 0) {
+      signals[idx] = signal;
+    } else {
+      signals.add(signal);
     }
+    await LocalStorageService.saveHuntingSignals(signals);
+
+    // Зберігаємо в Firebase
+    if (_currentStorage == StorageType.firebase) {
+      return await FirebaseService.saveSignal(signal);
+    }
+    return true;
   }
 
-  // ─── ПОВНА СИНХРОНІЗАЦІЯ ────────────────────────────────────────
+  static Future<bool> removeSignal(String id) async {
+    // Оновлюємо локальний кеш
+    final signals = await LocalStorageService.loadHuntingSignals() ?? [];
+    signals.removeWhere((s) => s['id'] == id);
+    await LocalStorageService.saveHuntingSignals(signals);
 
-  /// Завантажити ВСІ дані з Drive одним запитом
-  static Future<bool> syncFromDrive() async {
-    try {
-      final data = await GoogleDriveService.loadData();
-      if (data == null) return false;
-
-      if (data.containsKey('signals')) {
-        final signals = List<Map<String, dynamic>>.from(data['signals']);
-        await LocalStorageService.saveHuntingSignals(signals);
-      }
-      if (data.containsKey('materials')) {
-        final materials = List<Map<String, dynamic>>.from(data['materials']);
-        await LocalStorageService.saveEducationalMaterials(materials);
-      }
-      debugPrint('Sync from Drive: успішно');
-      return true;
-    } catch (e) {
-      debugPrint('Sync error: $e');
-      return false;
+    // Видаляємо з Firebase
+    if (_currentStorage == StorageType.firebase) {
+      return await FirebaseService.deleteSignal(id);
     }
+    return true;
   }
 
-  /// Завантажити ВСІ дані у Drive одним запитом (тільки адмін)
-  static Future<bool> syncToDrive() async {
+  static Future<bool> upsertMaterial(Map<String, dynamic> material) async {
+    final materials =
+        await LocalStorageService.loadEducationalMaterials() ?? [];
+    final idx = materials.indexWhere((m) => m['id'] == material['id']);
+    if (idx >= 0) {
+      materials[idx] = material;
+    } else {
+      materials.add(material);
+    }
+    await LocalStorageService.saveEducationalMaterials(materials);
+
+    if (_currentStorage == StorageType.firebase) {
+      return await FirebaseService.saveMaterial(material);
+    }
+    return true;
+  }
+
+  static Future<bool> removeMaterial(String id) async {
+    final materials =
+        await LocalStorageService.loadEducationalMaterials() ?? [];
+    materials.removeWhere((m) => m['id'] == id);
+    await LocalStorageService.saveEducationalMaterials(materials);
+
+    if (_currentStorage == StorageType.firebase) {
+      return await FirebaseService.deleteMaterial(id);
+    }
+    return true;
+  }
+
+  // ── SEED FIREBASE (адмін — публікація початкових даних) ────────────
+
+  static Future<bool> seedFirebase() async {
+    if (_currentStorage != StorageType.firebase) return false;
     try {
       final signals = await LocalStorageService.loadHuntingSignals() ?? [];
-      final materials = await LocalStorageService.loadEducationalMaterials() ?? [];
-      final allData = {
-        'signals': signals,
-        'materials': materials,
-        'updatedAt': DateTime.now().toIso8601String(),
-      };
-      final id = await GoogleDriveService.saveData(allData);
-      return id != null;
+      final materials =
+          await LocalStorageService.loadEducationalMaterials() ?? [];
+      final sigOk = await FirebaseService.seedSignals(signals);
+      final matOk = await FirebaseService.seedMaterials(materials);
+      return sigOk && matOk;
     } catch (e) {
-      debugPrint('Sync to Drive error: $e');
+      debugPrint('seedFirebase error: $e');
       return false;
     }
   }
 
-  // ─── ДОПОМІЖНІ ─────────────────────────────────────────────────
+  // ── LEGACY ─────────────────────────────────────────────────────────
 
-  /// Будує повний bundle даних для збереження в Drive
-  static Future<Map<String, dynamic>> _buildDataBundle({
-    List<Map<String, dynamic>>? signals,
-    List<Map<String, dynamic>>? materials,
-  }) async {
-    final existingSignals = signals ?? await LocalStorageService.loadHuntingSignals() ?? [];
-    final existingMaterials = materials ?? await LocalStorageService.loadEducationalMaterials() ?? [];
-    return {
-      'signals': existingSignals,
-      'materials': existingMaterials,
-      'updatedAt': DateTime.now().toIso8601String(),
-    };
-  }
-
-  static Future<bool> createBackup() async => await syncToDrive();
-
-  static Future<bool> restoreFromBackup() async => await syncFromDrive();
-
-  static Future<bool> clearAll() async {
-    return await LocalStorageService.clearAll();
-  }
+  static Future<bool> createBackup() async => true;
+  static Future<bool> restoreFromBackup() async => true;
+  static Future<bool> clearAll() async =>
+      await LocalStorageService.clearAll();
 
   static Future<Map<String, dynamic>> getStorageInfo() async {
     final localInfo = await LocalStorageService.getStorageInfo();
-    final driveInfo = await GoogleDriveService.getStorageInfo();
-    return {
-      'storageType': _currentStorage.name,
-      'local': localInfo,
-      'drive': driveInfo,
-    };
+    return {'storageType': _currentStorage.name, 'local': localInfo};
   }
 }
