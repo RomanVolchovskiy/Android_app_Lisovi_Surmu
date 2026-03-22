@@ -1,4 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
 import 'package:hunting_signals/models/hunting_models.dart';
 import 'package:hunting_signals/services/audio_service.dart';
@@ -264,119 +267,116 @@ class SignalDetailsSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  signal.name,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: HuntingTheme.primaryColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Scrollable content
+        Flexible(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  Icons.category,
-                  color: HuntingTheme.primaryDark,
-                  size: 20,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        signal.name,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  signal.category,
-                  style: TextStyle(
-                    color: HuntingTheme.primaryDark,
-                    fontWeight: FontWeight.w600,
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: HuntingTheme.primaryColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.category, color: HuntingTheme.primaryDark, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        signal.category,
+                        style: TextStyle(
+                          color: HuntingTheme.primaryDark,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const Spacer(),
+                      Icon(Icons.timer, size: 16, color: Colors.grey[600]),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${signal.duration}с',
+                        style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w500),
+                      ),
+                    ],
                   ),
                 ),
-                const Spacer(),
-                Icon(
-                  Icons.timer,
-                  size: 16,
-                  color: Colors.grey[600],
-                ),
-                const SizedBox(width: 4),
+                const SizedBox(height: 20),
                 Text(
-                  '${signal.duration}с',
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w500,
-                  ),
+                  'Опис',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey[800]),
                 ),
+                const SizedBox(height: 8),
+                Text(
+                  signal.description,
+                  style: TextStyle(fontSize: 14, color: Colors.grey[700], height: 1.5),
+                ),
+                const SizedBox(height: 8),
               ],
             ),
           ),
-          const SizedBox(height: 20),
-          Text(
-            'Опис',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[800],
+        ),
+        // Кнопки завжди видимі внизу
+        if (signal.videoUrl != null || signal.notationUrl != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+            child: Row(
+              children: [
+                if (signal.videoUrl != null) ...[
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => _openVideo(context, signal.videoUrl),
+                      icon: const Icon(Icons.videocam),
+                      label: const Text('Дивитись відео'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                  if (signal.notationUrl != null) const SizedBox(width: 12),
+                ],
+                if (signal.notationUrl != null)
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _openNotation(context, signal.notationUrl),
+                      icon: const Icon(Icons.music_note),
+                      label: const Text('Ноти'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        side: BorderSide(color: HuntingTheme.primaryColor),
+                      ),
+                    ),
+                  ),
+              ],
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            signal.description,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[700],
-              height: 1.5,
-            ),
-          ),
+          )
+        else
           const SizedBox(height: 24),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () => _openVideo(context, signal.videoUrl),
-                  icon: const Icon(Icons.videocam),
-                  label: const Text('Дивитись відео'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _openNotation(context, signal.notationUrl),
-                  icon: const Icon(Icons.music_note),
-                  label: const Text('Ноти'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    side: BorderSide(color: HuntingTheme.primaryColor),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-        ],
-      ),
+      ],
     );
   }
 }
@@ -393,6 +393,7 @@ class _VideoPlayerDialog extends StatefulWidget {
 
 class _VideoPlayerDialogState extends State<_VideoPlayerDialog> {
   late VideoPlayerController _controller;
+  bool _controllerInitialized = false;
   bool _initialized = false;
   String? _error;
 
@@ -406,6 +407,10 @@ class _VideoPlayerDialogState extends State<_VideoPlayerDialog> {
     try {
       if (widget.videoUrl.startsWith('assets/')) {
         _controller = VideoPlayerController.asset(widget.videoUrl);
+      } else if (widget.videoUrl.contains('drive.google.com') ||
+          widget.videoUrl.contains('drive.usercontent.google.com')) {
+        final localPath = await _downloadToCache(widget.videoUrl);
+        _controller = VideoPlayerController.file(File(localPath));
       } else {
         _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
       }
@@ -419,9 +424,46 @@ class _VideoPlayerDialogState extends State<_VideoPlayerDialog> {
     }
   }
 
+  Future<String> _downloadToCache(String url) async {
+    final resolvedUrl = _resolveGoogleDriveUrl(url);
+    final fileName = '${resolvedUrl.hashCode}.mp4';
+    final dir = await getTemporaryDirectory();
+    final file = File('${dir.path}/$fileName');
+    if (await file.exists()) return file.path;
+    final response = await http.get(Uri.parse(resolvedUrl));
+    if (response.statusCode != 200) {
+      throw Exception('HTTP ${response.statusCode}');
+    }
+    final contentType = response.headers['content-type'] ?? '';
+    if (contentType.contains('text/html')) {
+      throw Exception('Google Drive повернув HTML замість відео. Перевірте, чи файл публічний.');
+    }
+    await file.writeAsBytes(response.bodyBytes);
+    return file.path;
+  }
+
+  String _resolveGoogleDriveUrl(String url) {
+    // Формат: /file/d/FILE_ID/view або /file/d/FILE_ID/
+    final fileIdMatch = RegExp(r'/file/d/([^/?]+)').firstMatch(url);
+    if (fileIdMatch != null) {
+      final id = fileIdMatch.group(1)!;
+      return 'https://drive.usercontent.google.com/download?id=$id&export=download&authuser=0&confirm=t';
+    }
+    // Формат: ?id=FILE_ID або &id=FILE_ID
+    final idMatch = RegExp(r'[?&]id=([^&]+)').firstMatch(url);
+    if (idMatch != null) {
+      final id = idMatch.group(1)!;
+      return 'https://drive.usercontent.google.com/download?id=$id&export=download&authuser=0&confirm=t';
+    }
+    return url;
+  }
+
   @override
   void dispose() {
-    _controller.dispose();
+    if (_initialized) {
+      _controller.pause();
+      _controller.dispose();
+    }
     super.dispose();
   }
 
@@ -453,7 +495,14 @@ class _VideoPlayerDialogState extends State<_VideoPlayerDialog> {
           else if (!_initialized)
             const Padding(
               padding: EdgeInsets.all(48),
-              child: CircularProgressIndicator(color: Colors.white),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(color: Colors.white),
+                  SizedBox(height: 16),
+                  Text('Завантаження відео...', style: TextStyle(color: Colors.white70)),
+                ],
+              ),
             )
           else
             Column(
