@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 import 'package:hunting_signals/models/hunting_models.dart';
 import 'package:hunting_signals/services/audio_service.dart';
@@ -252,17 +253,32 @@ class SignalDetailsSheet extends StatelessWidget {
     );
   }
 
-  void _openNotation(BuildContext context, String? notationUrl) {
+  void _openNotation(BuildContext context, String? notationUrl) async {
     if (notationUrl == null || notationUrl.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Ноти не додані для цього сигналу')),
       );
       return;
     }
-    showDialog(
-      context: context,
-      builder: (_) => _NotationViewerDialog(notationUrl: notationUrl),
-    );
+    // Зображення — показуємо в діалозі
+    final lower = notationUrl.toLowerCase();
+    final isImage = lower.endsWith('.png') || lower.endsWith('.jpg') ||
+        lower.endsWith('.jpeg') || lower.endsWith('.webp');
+    if (isImage) {
+      showDialog(context: context, builder: (_) => _NotationViewerDialog(notationUrl: notationUrl));
+      return;
+    }
+    // PDF або будь-яке посилання — відкриваємо в браузері
+    final uri = Uri.tryParse(notationUrl);
+    if (uri != null && await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Не вдалося відкрити файл з нотами')),
+        );
+      }
+    }
   }
 
   @override
@@ -333,6 +349,39 @@ class SignalDetailsSheet extends StatelessWidget {
                   signal.description,
                   style: TextStyle(fontSize: 14, color: Colors.grey[700], height: 1.5),
                 ),
+                // Зображення
+                if (signal.imageUrl != null && signal.imageUrl!.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      signal.imageUrl!,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      loadingBuilder: (ctx, child, progress) =>
+                          progress == null ? child : const Center(child: CircularProgressIndicator()),
+                      errorBuilder: (ctx, err, _) => const SizedBox.shrink(),
+                    ),
+                  ),
+                ],
+                // Історична інформація
+                if (signal.historicalInfo != null && signal.historicalInfo!.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text('Історична довідка',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.grey[800])),
+                  const SizedBox(height: 6),
+                  Text(signal.historicalInfo!,
+                      style: TextStyle(fontSize: 13, color: Colors.grey[700], height: 1.5)),
+                ],
+                // Інструкції з використання
+                if (signal.usageInstructions != null && signal.usageInstructions!.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text('Інструкції',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.grey[800])),
+                  const SizedBox(height: 6),
+                  Text(signal.usageInstructions!,
+                      style: TextStyle(fontSize: 13, color: Colors.grey[700], height: 1.5)),
+                ],
                 const SizedBox(height: 8),
               ],
             ),
