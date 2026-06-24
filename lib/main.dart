@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:hunting_signals/firebase_options.dart';
 import 'package:hunting_signals/services/hunting_data_service.dart';
 import 'package:hunting_signals/services/storage_manager.dart';
 import 'screens/main_navigation.dart';
@@ -16,8 +17,21 @@ import 'theme/hunting_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
-  await StorageManager.initialize(storageType: StorageType.firebase);
+
+  // Ініціалізація Firebase з явними опціями для обох платформ.
+  // На iOS потрібно замінити appId у lib/firebase_options.dart
+  // та ios/Runner/GoogleService-Info.plist після реєстрації у Firebase Console.
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    await StorageManager.initialize(storageType: StorageType.firebase);
+  } catch (e) {
+    // Firebase не налаштований для цієї платформи — використовуємо локальне сховище
+    debugPrint('Firebase init failed: $e');
+    await StorageManager.initialize(storageType: StorageType.local);
+  }
+
   await HuntingDataService.loadPersistedData();
   runApp(const HuntingSignalsApp());
 }
@@ -38,7 +52,6 @@ class HuntingSignalsApp extends StatelessWidget {
       title: 'Лісові Сурми',
       debugShowCheckedModeBanner: false,
       theme: HuntingTheme.theme.copyWith(
-        // Адаптація Material теми для iOS — округліші кути, iOS-стиль кнопок
         pageTransitionsTheme: const PageTransitionsTheme(
           builders: {
             TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),

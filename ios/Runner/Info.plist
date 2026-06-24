@@ -70,6 +70,22 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 
+	<!-- Google Sign-In URL scheme
+	     ЗАМІНІТЬ com.googleusercontent.apps.REVERSED_CLIENT_ID
+	     на реальне значення REVERSED_CLIENT_ID з GoogleService-Info.plist
+	     після реєстрації iOS-додатку у Firebase Console -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>ЗАМІНІТЬ_НА_REVERSED_CLIENT_ID_З_GoogleService-Info.plist</string>
+			</array>
+		</dict>
+	</array>
+
 	<!-- Продуктивність -->
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
