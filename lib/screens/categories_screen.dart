@@ -1,7 +1,10 @@
+import 'dart:io';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:hunting_signals/models/hunting_models.dart';
 import 'package:hunting_signals/services/hunting_data_service.dart';
 import 'package:hunting_signals/widgets/signal_card.dart';
+import 'package:hunting_signals/widgets/platform_dialog.dart';
 
 class CategoriesScreen extends StatefulWidget {
   const CategoriesScreen({super.key});
@@ -39,9 +42,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         _isLoading = false;
       });
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Помилка завантаження: $e')));
+        showPlatformSnackBar(context, 'Помилка завантаження: $e');
       }
     }
   }
@@ -62,7 +63,11 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(
+        child: Platform.isIOS
+            ? const CupertinoActivityIndicator(radius: 16)
+            : const CircularProgressIndicator(),
+      );
     }
 
     return Column(

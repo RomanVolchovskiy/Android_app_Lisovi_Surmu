@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!--
+  УВАГА: Цей файл містить placeholder для GOOGLE_APP_ID.
+  Щоб завершити налаштування Firebase для iOS:
+
+  1. Відкрийте Firebase Console: https://console.firebase.google.com/project/huntingsignals
+  2. Project Settings → Загальні → "Ваші програми" → Додати застосунок → iOS
+  3. Bundle ID: com.huntingsignals.huntingSignals
+  4. Завантажте згенерований GoogleService-Info.plist
+  5. Замініть цей файл завантаженим: ios/Runner/GoogleService-Info.plist
+  6. Також скопіюйте GOOGLE_APP_ID у lib/firebase_options.dart (поле appId для ios)
+  7. Скопіюйте REVERSED_CLIENT_ID до Info.plist у розділ CFBundleURLSchemes
+-->
+<dict>
+	<key>CLIENT_ID</key>
+	<string>ЗАМІНІТЬ_ПІСЛЯ_РЕЄСТРАЦІЇ_В_FIREBASE_CONSOLE</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>ЗАМІНІТЬ_ПІСЛЯ_РЕЄСТРАЦІЇ_В_FIREBASE_CONSOLE</string>
+	<key>API_KEY</key>
+	<string>AIzaSyAVSYGp-YOkrkdGwSadfmCuR64xkhlI-pw</string>
+	<key>GCM_SENDER_ID</key>
+	<string>718598030499</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.huntingsignals.huntingSignals</string>
+	<key>PROJECT_ID</key>
+	<string>huntingsignals</string>
+	<key>STORAGE_BUCKET</key>
+	<string>huntingsignals.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false/>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false/>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true/>
+	<key>IS_GCM_ENABLED</key>
+	<true/>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true/>
+	<key>GOOGLE_APP_ID</key>
+	<string>ЗАМІНІТЬ_ПІСЛЯ_РЕЄСТРАЦІЇ_В_FIREBASE_CONSOLE</string>
+	<key>DATABASE_URL</key>
+	<string>https://huntingsignals-default-rtdb.firebaseio.com</string>
+</dict>
+</plist>

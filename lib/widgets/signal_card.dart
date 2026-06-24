@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -7,6 +8,7 @@ import 'package:video_player/video_player.dart';
 import 'package:hunting_signals/models/hunting_models.dart';
 import 'package:hunting_signals/services/audio_service.dart';
 import 'package:hunting_signals/theme/hunting_theme.dart';
+import 'package:hunting_signals/widgets/platform_dialog.dart';
 
 class SignalCard extends StatefulWidget {
   final HuntingSignal signal;
@@ -55,9 +57,7 @@ class _SignalCardState extends State<SignalCard> {
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Помилка відтворення: $e')),
-          );
+          showPlatformSnackBar(context, 'Помилка відтворення: $e');
         }
       }
     }
@@ -75,14 +75,30 @@ class _SignalCardState extends State<SignalCard> {
   }
 
   void _showSignalDetails() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => SignalDetailsSheet(signal: widget.signal),
-    );
+    if (Platform.isIOS) {
+      showCupertinoModalPopup(
+        context: context,
+        builder: (context) => ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          child: Container(
+            color: CupertinoColors.systemBackground.resolveFrom(context),
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.85,
+            ),
+            child: SignalDetailsSheet(signal: widget.signal),
+          ),
+        ),
+      );
+    } else {
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.white,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (context) => SignalDetailsSheet(signal: widget.signal),
+      );
+    }
   }
 
   @override
@@ -180,19 +196,39 @@ class _SignalCardState extends State<SignalCard> {
                 Row(
                   children: [
                     Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: _togglePlay,
-                        icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
-                        label: Text(_isPlaying ? 'Пауза' : 'Слухати'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: HuntingTheme.primaryColor,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
+                      child: Platform.isIOS
+                          ? CupertinoButton.filled(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              borderRadius: BorderRadius.circular(12),
+                              onPressed: _togglePlay,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    _isPlaying
+                                        ? CupertinoIcons.pause_fill
+                                        : CupertinoIcons.play_fill,
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(_isPlaying ? 'Пауза' : 'Слухати'),
+                                ],
+                              ),
+                            )
+                          : ElevatedButton.icon(
+                              onPressed: _togglePlay,
+                              icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
+                              label: Text(_isPlaying ? 'Пауза' : 'Слухати'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: HuntingTheme.primaryColor,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
                     ),
                     const SizedBox(width: 12),
                     Container(
