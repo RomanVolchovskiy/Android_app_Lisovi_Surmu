@@ -6,6 +6,7 @@ import 'package:hunting_signals/services/playlist_service.dart';
 import 'package:hunting_signals/services/audio_service.dart';
 import 'package:hunting_signals/theme/hunting_theme.dart';
 import 'package:hunting_signals/widgets/signal_card.dart';
+import 'package:hunting_signals/widgets/platform_dialog.dart';
 
 class FavoritesScreen extends StatefulWidget {
   const FavoritesScreen({super.key});
@@ -361,20 +362,13 @@ class _FavoritesScreenState extends State<FavoritesScreen>
             IconButton(
               icon: const Icon(Icons.delete, color: Colors.red, size: 20),
               onPressed: () async {
-                final confirm = await showDialog<bool>(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: const Text('Видалити плейлист?'),
-                    content: Text('Видалити "${playlist.name}"?'),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Ні')),
-                      ElevatedButton(
-                        onPressed: () => Navigator.pop(ctx, true),
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                        child: const Text('Видалити', style: TextStyle(color: Colors.white)),
-                      ),
-                    ],
-                  ),
+                final confirm = await showPlatformConfirmDialog(
+                  context,
+                  title: 'Видалити плейлист?',
+                  content: 'Видалити "${playlist.name}"?',
+                  confirmLabel: 'Видалити',
+                  cancelLabel: 'Ні',
+                  isDestructive: true,
                 );
                 if (confirm == true) {
                   await PlaylistService.deletePlaylist(playlist.id);
