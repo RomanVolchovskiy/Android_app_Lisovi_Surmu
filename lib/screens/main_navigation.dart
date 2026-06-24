@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:hunting_signals/screens/categories_screen.dart';
 import 'package:hunting_signals/screens/events_screen.dart';
@@ -32,6 +34,86 @@ class _MainNavigationState extends State<MainNavigation> {
 
   @override
   Widget build(BuildContext context) {
+    if (Platform.isIOS) {
+      return _buildIOSLayout();
+    }
+    return _buildAndroidLayout();
+  }
+
+  Widget _buildIOSLayout() {
+    return CupertinoTabScaffold(
+      tabBar: CupertinoTabBar(
+        activeColor: HuntingTheme.primaryColor,
+        inactiveColor: CupertinoColors.inactiveGray,
+        backgroundColor: CupertinoColors.systemBackground,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(CupertinoIcons.music_note_2),
+            activeIcon: Icon(CupertinoIcons.music_note_2),
+            label: 'Сигнали',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(CupertinoIcons.calendar),
+            activeIcon: Icon(CupertinoIcons.calendar_today),
+            label: 'Події',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(CupertinoIcons.book),
+            activeIcon: Icon(CupertinoIcons.book_fill),
+            label: 'Навчання',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(CupertinoIcons.heart),
+            activeIcon: Icon(CupertinoIcons.heart_fill),
+            label: 'Обране',
+          ),
+        ],
+      ),
+      tabBuilder: (context, index) {
+        return CupertinoTabView(
+          builder: (context) {
+            return CupertinoPageScaffold(
+              navigationBar: CupertinoNavigationBar(
+                middle: Text(
+                  _titles[index],
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                backgroundColor: HuntingTheme.primaryColor,
+                brightness: Brightness.dark,
+                trailing: CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  onPressed: () => AdminService.showAdminLoginDialog(context),
+                  child: const Icon(
+                    CupertinoIcons.person_badge_plus,
+                    color: CupertinoColors.white,
+                  ),
+                ),
+              ),
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      HuntingTheme.backgroundColor,
+                      HuntingTheme.primaryLight.withValues(alpha: 0.1),
+                    ],
+                  ),
+                ),
+                child: SafeArea(
+                  child: _screens[index],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildAndroidLayout() {
     return Scaffold(
       appBar: AppBar(
         title: Text(

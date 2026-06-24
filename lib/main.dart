@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:hunting_signals/services/hunting_data_service.dart';
 import 'package:hunting_signals/services/storage_manager.dart';
@@ -25,6 +27,47 @@ class HuntingSignalsApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (Platform.isIOS) {
+      return _buildCupertinoApp();
+    }
+    return _buildMaterialApp();
+  }
+
+  Widget _buildCupertinoApp() {
+    return MaterialApp(
+      title: 'Лісові Сурми',
+      debugShowCheckedModeBanner: false,
+      theme: HuntingTheme.theme.copyWith(
+        // Адаптація Material теми для iOS — округліші кути, iOS-стиль кнопок
+        pageTransitionsTheme: const PageTransitionsTheme(
+          builders: {
+            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+            TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+          },
+        ),
+        cupertinoOverrideTheme: const CupertinoThemeData(
+          primaryColor: HuntingTheme.primaryColor,
+          barBackgroundColor: HuntingTheme.primaryColor,
+          textTheme: CupertinoTextThemeData(
+            primaryColor: HuntingTheme.primaryColor,
+          ),
+        ),
+      ),
+      home: const MainNavigation(),
+      routes: {
+        '/home': (context) => const MainNavigation(),
+        '/admin-login': (context) => const AdminLoginScreen(),
+        '/admin-panel': (context) => const AdminPanelScreen(),
+        '/add-signal': (context) => const AddSignalScreen(),
+        '/add-education': (context) => const AddEducationScreen(),
+        '/categories': (context) => const CategoriesScreen(),
+        '/education': (context) => const EducationScreen(),
+        '/settings': (context) => const SettingsStorageScreen(),
+      },
+    );
+  }
+
+  Widget _buildMaterialApp() {
     return MaterialApp(
       title: 'Мисливські Сигнали',
       debugShowCheckedModeBanner: false,
