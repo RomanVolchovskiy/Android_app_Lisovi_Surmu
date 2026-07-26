@@ -1,5 +1,6 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:io' show File;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -338,8 +339,9 @@ class LocalStorageService {
     }
   }
 
-  /// Create backup file
+  /// Create backup file (тільки мобільні — на вебі не підтримується)
   static Future<String?> createBackupFile() async {
+    if (kIsWeb) return null;
     try {
       final prefs = await SharedPreferences.getInstance();
       final backupData = <String, dynamic>{};
@@ -371,8 +373,9 @@ class LocalStorageService {
     }
   }
 
-  /// Restore from backup file
+  /// Restore from backup file (тільки мобільні — на вебі не підтримується)
   static Future<bool> restoreFromFile(String filePath) async {
+    if (kIsWeb) return false;
     try {
       final file = File(filePath);
       if (!await file.exists()) return false;

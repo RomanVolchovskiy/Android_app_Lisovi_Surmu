@@ -1,10 +1,10 @@
-import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:hunting_signals/firebase_options.dart';
 import 'package:hunting_signals/services/hunting_data_service.dart';
 import 'package:hunting_signals/services/storage_manager.dart';
+import 'package:hunting_signals/utils/platform_utils.dart';
 import 'screens/main_navigation.dart';
 import 'screens/admin_login_screen.dart';
 import 'screens/admin_panel_screen.dart';
@@ -18,16 +18,12 @@ import 'theme/hunting_theme.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Ініціалізація Firebase з явними опціями для обох платформ.
-  // На iOS потрібно замінити appId у lib/firebase_options.dart
-  // та ios/Runner/GoogleService-Info.plist після реєстрації у Firebase Console.
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
     await StorageManager.initialize(storageType: StorageType.firebase);
   } catch (e) {
-    // Firebase не налаштований для цієї платформи — використовуємо локальне сховище
     debugPrint('Firebase init failed: $e');
     await StorageManager.initialize(storageType: StorageType.local);
   }
@@ -41,7 +37,7 @@ class HuntingSignalsApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (Platform.isIOS) {
+    if (isIOS) {
       return _buildCupertinoApp();
     }
     return _buildMaterialApp();

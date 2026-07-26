@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:io' show File;
 import 'package:flutter/foundation.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -31,6 +31,7 @@ class AudioService extends ChangeNotifier {
   }
 
   void _configureAudioContext() {
+    if (kIsWeb) return; // Web не потребує налаштування AudioContext
     AudioPlayer.global.setAudioContext(AudioContext(
       android: const AudioContextAndroid(
         isSpeakerphoneOn: false,
@@ -66,8 +67,8 @@ class AudioService extends ChangeNotifier {
         String relativePath = audioUrl.substring(assetsIndex).replaceAll('\\', '/');
         String cleanPath = relativePath.replaceFirst('assets/', '');
         await _audioPlayer.play(AssetSource(cleanPath));
-      } else if (audioUrl.contains('drive.google.com') || audioUrl.contains('drive.usercontent.google.com')) {
-        // Google Drive — завантажуємо в кеш і грає локально
+      } else if (!kIsWeb && (audioUrl.contains('drive.google.com') || audioUrl.contains('drive.usercontent.google.com'))) {
+        // Google Drive — завантажуємо в кеш і грає локально (тільки мобільні)
         final localPath = await _downloadToCache(audioUrl);
         await _audioPlayer.play(DeviceFileSource(localPath));
       } else {
