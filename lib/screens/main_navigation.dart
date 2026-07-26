@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:hunting_signals/screens/categories_screen.dart';
@@ -7,6 +6,7 @@ import 'package:hunting_signals/screens/education_screen.dart';
 import 'package:hunting_signals/screens/favorites_screen.dart';
 import 'package:hunting_signals/theme/hunting_theme.dart';
 import 'package:hunting_signals/services/admin_service.dart';
+import 'package:hunting_signals/utils/platform_utils.dart';
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -34,7 +34,7 @@ class _MainNavigationState extends State<MainNavigation> {
 
   @override
   Widget build(BuildContext context) {
-    if (Platform.isIOS) {
+    if (isIOS) {
       return _buildIOSLayout();
     }
     return _buildAndroidLayout();

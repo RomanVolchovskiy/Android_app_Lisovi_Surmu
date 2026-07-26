@@ -1,5 +1,6 @@
-import 'dart:io';
+import 'dart:io' show File;
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -9,6 +10,7 @@ import 'package:hunting_signals/models/hunting_models.dart';
 import 'package:hunting_signals/services/audio_service.dart';
 import 'package:hunting_signals/theme/hunting_theme.dart';
 import 'package:hunting_signals/widgets/platform_dialog.dart';
+import 'package:hunting_signals/utils/platform_utils.dart';
 
 class SignalCard extends StatefulWidget {
   final HuntingSignal signal;
@@ -75,7 +77,7 @@ class _SignalCardState extends State<SignalCard> {
   }
 
   void _showSignalDetails() {
-    if (Platform.isIOS) {
+    if (isIOS) {
       showCupertinoModalPopup(
         context: context,
         builder: (context) => ClipRRect(
@@ -196,7 +198,7 @@ class _SignalCardState extends State<SignalCard> {
                 Row(
                   children: [
                     Expanded(
-                      child: Platform.isIOS
+                      child: isIOS
                           ? CupertinoButton.filled(
                               padding: const EdgeInsets.symmetric(vertical: 10),
                               borderRadius: BorderRadius.circular(12),
@@ -492,8 +494,10 @@ class _VideoPlayerDialogState extends State<_VideoPlayerDialog> {
     try {
       if (widget.videoUrl.startsWith('assets/')) {
         _controller = VideoPlayerController.asset(widget.videoUrl);
-      } else if (widget.videoUrl.contains('drive.google.com') ||
-          widget.videoUrl.contains('drive.usercontent.google.com')) {
+      } else if (!kIsWeb &&
+          (widget.videoUrl.contains('drive.google.com') ||
+              widget.videoUrl.contains('drive.usercontent.google.com'))) {
+        // На вебі кеш не підтримується — відтворюємо напряму
         final localPath = await _downloadToCache(widget.videoUrl);
         _controller = VideoPlayerController.file(File(localPath));
       } else {

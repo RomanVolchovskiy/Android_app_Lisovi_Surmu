@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:hunting_signals/utils/platform_utils.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
@@ -24,7 +24,7 @@ class PlatformAlertDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (Platform.isIOS) {
+    if (isIOS) {
       return CupertinoAlertDialog(
         title: Text(title),
         content: Text(content),
@@ -89,7 +89,7 @@ Future<bool?> showPlatformConfirmDialog(
 }
 
 void showPlatformSnackBar(BuildContext context, String message) {
-  if (Platform.isIOS) {
+  if (isIOS) {
     // На iOS використовуємо стандартний SnackBar але без Material ripple
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

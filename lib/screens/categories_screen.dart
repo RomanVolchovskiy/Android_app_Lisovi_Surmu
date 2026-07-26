@@ -1,10 +1,10 @@
-import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:hunting_signals/models/hunting_models.dart';
 import 'package:hunting_signals/services/hunting_data_service.dart';
 import 'package:hunting_signals/widgets/signal_card.dart';
 import 'package:hunting_signals/widgets/platform_dialog.dart';
+import 'package:hunting_signals/utils/platform_utils.dart';
 
 class CategoriesScreen extends StatefulWidget {
   const CategoriesScreen({super.key});
@@ -64,7 +64,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Center(
-        child: Platform.isIOS
+        child: isIOS
             ? const CupertinoActivityIndicator(radius: 16)
             : const CircularProgressIndicator(),
       );
