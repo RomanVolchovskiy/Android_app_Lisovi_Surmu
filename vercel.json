@@ -1,5 +1,4 @@
 {
-  "framework": "other",
   "outputDirectory": "build/web",
   "routes": [
     { "handle": "filesystem" },
