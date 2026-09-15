@@ -1,4 +1,5 @@
 {
+  "buildCommand": "if [ ! -x \"$HOME/flutter/bin/flutter\" ]; then rm -rf \"$HOME/flutter\" && git clone --depth 1 -b stable https://github.com/flutter/flutter.git \"$HOME/flutter\"; fi && export PATH=\"$HOME/flutter/bin:$PATH\" && flutter pub get && flutter build web --release",
   "outputDirectory": "build/web",
   "routes": [
     { "handle": "filesystem" },
