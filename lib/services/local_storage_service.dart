@@ -1,5 +1,6 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:io' if (dart.library.html) 'package:hunting_signals/stubs/dart_io_stub.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -340,6 +341,7 @@ class LocalStorageService {
 
   /// Create backup file
   static Future<String?> createBackupFile() async {
+    if (kIsWeb) return null;
     try {
       final prefs = await SharedPreferences.getInstance();
       final backupData = <String, dynamic>{};
@@ -373,6 +375,7 @@ class LocalStorageService {
 
   /// Restore from backup file
   static Future<bool> restoreFromFile(String filePath) async {
+    if (kIsWeb) return false;
     try {
       final file = File(filePath);
       if (!await file.exists()) return false;

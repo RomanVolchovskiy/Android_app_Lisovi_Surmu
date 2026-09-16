@@ -15,18 +15,22 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
+  int _categoriesRefreshToken = 0;
 
-  final List<Widget> _screens = const [
-    CategoriesScreen(),
-    EventsScreen(),
-    EducationScreen(),
-    FavoritesScreen(),
-  ];
+  Widget _buildScreen() {
+    switch (_currentIndex) {
+      case 0: return CategoriesScreen(key: ValueKey(_categoriesRefreshToken));
+      case 1: return const EducationScreen();
+      case 2: return const EventsScreen();
+      case 3: return const FavoritesScreen();
+      default: return CategoriesScreen(key: ValueKey(_categoriesRefreshToken));
+    }
+  }
 
   final List<String> _titles = [
     'Мисливські Сигнали',
-    'Мисливські Події',
     'Навчальні Матеріали',
+    'Мисливські події',
     'Обрані Сигнали',
   ];
 
@@ -47,27 +51,92 @@ class _MainNavigationState extends State<MainNavigation> {
         actions: [
           IconButton(
             icon: const Icon(Icons.admin_panel_settings),
-            onPressed: () {
-              AdminService.showAdminLoginDialog(context);
+            onPressed: () async {
+              await AdminService.showAdminLoginDialog(context);
+              if (mounted) setState(() => _categoriesRefreshToken++);
             },
             tooltip: 'Адміністратор',
           ),
         ],
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              HuntingTheme.backgroundColor,
-              HuntingTheme.primaryLight.withValues(alpha: 0.1),
-            ],
+      body: OrientationBuilder(
+        builder: (context, orientation) => Column(
+        children: [
+          // ── Банер ──────────────────────────────────────────────────────
+          if (orientation == Orientation.portrait)
+            Stack(
+              children: [
+                ClipRect(
+                  child: Align(
+                    alignment: Alignment.bottomCenter,
+                    heightFactor: 0.8,
+                    child: Image.asset(
+                      'assets/images/Лісові сурми на заході сонця.png',
+                      width: double.infinity,
+                      fit: BoxFit.fitWidth,
+                    ),
+                  ),
+                ),
+                Positioned.fill(
+                  child: Container(color: Colors.black.withValues(alpha: 0.15)),
+                ),
+                Positioned(
+                  left: 10,
+                  top: 8,
+                  child: Image.asset(
+                    'assets/icons/icon1.png',
+                    height: 72,
+                    width: 72,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ],
+            )
+          else
+            SizedBox(
+              height: 160,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.asset(
+                    'assets/images/Лісові сурми на заході сонця.png',
+                    fit: BoxFit.cover,
+                  ),
+                  Container(color: Colors.black.withValues(alpha: 0.15)),
+                  Positioned(
+                    left: 10,
+                    top: 8,
+                    child: Image.asset(
+                      'assets/icons/icon1.png',
+                      height: 130,
+                      width: 130,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          // ── Вміст екрану ───────────────────────────────────────────────
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    HuntingTheme.backgroundColor,
+                    HuntingTheme.primaryLight.withValues(alpha: 0.1),
+                  ],
+                ),
+              ),
+              child: SafeArea(
+                top: false,
+                child: _buildScreen(),
+              ),
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: _screens[_currentIndex],
-        ),
+        ],
+      ),
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
@@ -105,12 +174,12 @@ class _MainNavigationState extends State<MainNavigation> {
               label: 'Сигнали',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.event, size: 24),
-              label: 'Події',
-            ),
-            BottomNavigationBarItem(
               icon: Icon(Icons.school, size: 24),
               label: 'Навчання',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.event, size: 24),
+              label: 'Події',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.favorite, size: 24),

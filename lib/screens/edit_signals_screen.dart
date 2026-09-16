@@ -24,10 +24,19 @@ class _EditSignalsScreenState extends State<EditSignalsScreen> {
     final signals = await HuntingDataService.getAllSignals();
     if (mounted) {
       setState(() {
-        _signals = signals;
+        _signals = List.from(signals);
         _loading = false;
       });
     }
+  }
+
+  void _onReorder(int oldIndex, int newIndex) {
+    setState(() {
+      if (newIndex > oldIndex) newIndex--;
+      final s = _signals.removeAt(oldIndex);
+      _signals.insert(newIndex, s);
+    });
+    HuntingDataService.reorderSignals(List.from(_signals));
   }
 
   Future<void> _deleteSignal(HuntingSignal signal) async {
@@ -64,16 +73,18 @@ class _EditSignalsScreenState extends State<EditSignalsScreen> {
           ? const Center(child: CircularProgressIndicator())
           : _signals.isEmpty
               ? const Center(child: Text('Сигнали відсутні'))
-              : ListView.separated(
+              : ReorderableListView.builder(
+                  buildDefaultDragHandles: false,
                   padding: const EdgeInsets.all(16),
                   itemCount: _signals.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  onReorder: _onReorder,
                   itemBuilder: (ctx, i) {
                     final signal = _signals[i];
                     return ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: Colors.orange.withValues(alpha: 0.15),
-                        child: const Icon(Icons.surround_sound, color: Colors.orange),
+                      key: ValueKey(signal.id),
+                      leading: ReorderableDragStartListener(
+                        index: i,
+                        child: const Icon(Icons.drag_handle, color: Colors.grey),
                       ),
                       title: Text(signal.name, style: const TextStyle(fontWeight: FontWeight.w600)),
                       subtitle: Text(signal.category, style: TextStyle(color: Colors.grey[600])),

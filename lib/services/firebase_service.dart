@@ -9,6 +9,8 @@ class FirebaseService {
 
   static const String _signalsCollection = 'signals';
   static const String _materialsCollection = 'materials';
+  static const String _globalEventsCollection = 'global_events';
+  static const String _sharedEventsCollection = 'shared_events';
 
   // ── SIGNALS ────────────────────────────────────────────────────────
 
@@ -23,6 +25,15 @@ class FirebaseService {
       debugPrint('Firebase loadSignals error: $e');
       return null;
     }
+  }
+
+  /// Real-time stream — оновлює дані на всіх пристроях автоматично
+  static Stream<List<Map<String, dynamic>>> signalsStream() {
+    return _db.collection(_signalsCollection).snapshots().map(
+          (snap) => snap.docs
+              .map((doc) => Map<String, dynamic>.from(doc.data()))
+              .toList(),
+        );
   }
 
   static Future<bool> saveSignal(Map<String, dynamic> signal) async {
@@ -81,6 +92,69 @@ class FirebaseService {
     } catch (e) {
       debugPrint('Firebase deleteMaterial error: $e');
       return false;
+    }
+  }
+
+  // ── GLOBAL EVENTS (адмін → всі користувачі) ───────────────────────
+
+  static Stream<List<Map<String, dynamic>>> globalEventsStream() {
+    return _db.collection(_globalEventsCollection).snapshots().map(
+          (snap) => snap.docs
+              .map((doc) => Map<String, dynamic>.from(doc.data()))
+              .toList(),
+        );
+  }
+
+  static Future<bool> saveGlobalEvent(Map<String, dynamic> event) async {
+    try {
+      final id = event['id'] as String?;
+      if (id == null || id.isEmpty) return false;
+      await _db.collection(_globalEventsCollection).doc(id).set(event);
+      return true;
+    } catch (e) {
+      debugPrint('Firebase saveGlobalEvent error: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> deleteGlobalEvent(String id) async {
+    try {
+      await _db.collection(_globalEventsCollection).doc(id).delete();
+      return true;
+    } catch (e) {
+      debugPrint('Firebase deleteGlobalEvent error: $e');
+      return false;
+    }
+  }
+
+  // ── SHARED EVENTS (користувач → код → інший користувач) ───────────
+
+  static Future<bool> saveSharedEvent(Map<String, dynamic> event) async {
+    try {
+      final id = event['id'] as String?;
+      if (id == null || id.isEmpty) return false;
+      await _db.collection(_sharedEventsCollection).doc(id).set(event);
+      return true;
+    } catch (e) {
+      debugPrint('Firebase saveSharedEvent error: $e');
+      return false;
+    }
+  }
+
+  static Future<Map<String, dynamic>?> findSharedEventByCode(
+    String code,
+  ) async {
+    try {
+      final snap = await _db
+          .collection(_sharedEventsCollection)
+          .where('shareCode', isEqualTo: code.toUpperCase())
+          .limit(1)
+          .get();
+      if (snap.docs.isEmpty) return null;
+      return Map<String, dynamic>.from(snap.docs.first.data());
+    } catch (e) {
+      debugPrint('Firebase findSharedEventByCode error: $e');
+      return null;
     }
   }
 

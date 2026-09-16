@@ -1,12 +1,14 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'firebase_options.dart';
+import 'package:flutter/services.dart';
 import 'package:hunting_signals/services/hunting_data_service.dart';
+import 'package:hunting_signals/services/media_cache_service.dart';
 import 'package:hunting_signals/services/storage_manager.dart';
 import 'screens/main_navigation.dart';
 import 'screens/admin_login_screen.dart';
 import 'screens/admin_panel_screen.dart';
 import 'screens/add_signal_screen.dart';
-import 'screens/add_education_screen.dart';
 import 'screens/categories_screen.dart';
 import 'screens/education_screen.dart';
 import 'screens/settings_storage_screen.dart';
@@ -14,9 +16,22 @@ import 'theme/hunting_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+  ]);
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   await StorageManager.initialize(storageType: StorageType.firebase);
   await HuntingDataService.loadPersistedData();
+  // Попереднє завантаження медіафайлів у фоні (не блокує запуск)
+  Future(() async {
+    final signals = await HuntingDataService.getAllSignals();
+    await MediaCacheService.preloadSignals(signals);
+  });
   runApp(const HuntingSignalsApp());
 }
 
@@ -35,7 +50,6 @@ class HuntingSignalsApp extends StatelessWidget {
         '/admin-login': (context) => const AdminLoginScreen(),
         '/admin-panel': (context) => const AdminPanelScreen(),
         '/add-signal': (context) => const AddSignalScreen(),
-        '/add-education': (context) => const AddEducationScreen(),
         '/categories': (context) => const CategoriesScreen(),
         '/education': (context) => const EducationScreen(),
         '/settings': (context) => const SettingsStorageScreen(),

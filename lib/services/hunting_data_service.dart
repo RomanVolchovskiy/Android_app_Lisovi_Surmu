@@ -1,11 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:hunting_signals/models/hunting_models.dart';
+import 'package:hunting_signals/services/firebase_service.dart';
 import 'package:hunting_signals/services/local_storage_service.dart';
 import 'package:hunting_signals/services/storage_manager.dart';
 
 class HuntingDataService {
   static List<HuntingSignal> _signals = [];
   static List<EducationMaterial> _educationMaterials = [];
+
+  /// Real-time stream сигналів з Firebase.
+  /// Оновлює внутрішній кеш і сповіщає всіх слухачів автоматично.
+  static Stream<List<HuntingSignal>> signalsStream() {
+    return FirebaseService.signalsStream().map((data) {
+      if (data.isNotEmpty) {
+        _signals = data.map((j) => HuntingSignal.fromJson(j)).toList();
+        _signals.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+      }
+      return List<HuntingSignal>.from(_signals);
+    });
+  }
 
   /// Ініціалізація даних: Firebase → локальний кеш → дефолтні значення
   static Future<void> loadPersistedData() async {
@@ -15,6 +28,7 @@ class HuntingDataService {
     if (loadedSignals != null && loadedSignals.isNotEmpty) {
       _signals =
           loadedSignals.map((json) => HuntingSignal.fromJson(json)).toList();
+      _signals.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
     } else {
       // Firebase порожній або офлайн — завантажуємо дефолтні
       await getAllSignals();
@@ -64,10 +78,17 @@ class HuntingDataService {
       ),
       SignalCategory(
         id: '4',
-        name: 'Святкові',
-        description: 'Сигнали для святкових подій',
+        name: 'Святково-церемоніальні',
+        description: 'Сигнали для святкових та церемоніальних подій',
         icon: 'celebration',
         color: Colors.purple,
+      ),
+      SignalCategory(
+        id: '5',
+        name: 'Довільні',
+        description: 'Довільні мисливські сигнали',
+        icon: 'music_note',
+        color: Colors.teal,
       ),
     ];
   }
@@ -107,7 +128,7 @@ class HuntingDataService {
         HuntingSignal(
           id: '4',
           name: 'Святковий фанфар',
-          category: 'Святкові',
+          category: 'Святково-церемоніальні',
           description: 'Урочистий сигнал для святкових мисливських заходів',
           audioUrl:
               'https://drive.google.com/uc?export=download&id=1669WJ6zNDljlUHL6VpZ_MVA9Acf1C39X',
@@ -131,6 +152,16 @@ class HuntingDataService {
     if (index == -1) return false;
     _signals[index] = signal;
     return await StorageManager.upsertSignal(signal.toJson());
+  }
+
+  /// Змінити порядок сигналів → зберігається в Firebase та локально
+  static Future<void> reorderSignals(List<HuntingSignal> newOrder) async {
+    _signals = newOrder.asMap().entries
+        .map((e) => e.value.copyWith(sortOrder: e.key))
+        .toList();
+    final json = _signals.map((s) => s.toJson()).toList();
+    await LocalStorageService.saveHuntingSignals(json);
+    FirebaseService.seedSignals(json); // fire-and-forget batch write
   }
 
   /// Видалити сигнал → видаляється з Firebase автоматично

@@ -16,6 +16,10 @@ class GoogleDriveService {
   static const String _signedInKey = 'google_drive_signed_in';
   static const String _fileName = 'hunting_signals_data.json';
 
+  /// Захардкоджений fileId для всіх користувачів.
+  /// Заповнити після першого синхронізування адміном.
+  static const String? _hardcodedFileId = '16I__Q0sFtS7orKNXAEmOfYKrgBFuk1wJ';
+
   static final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: [
       drive.DriveApi.driveFileScope,
@@ -93,7 +97,7 @@ class GoogleDriveService {
     try {
       final jsonBytes = utf8.encode(jsonEncode(data));
       final prefs = await SharedPreferences.getInstance();
-      final existingId = prefs.getString(_fileIdKey);
+      final existingId = _hardcodedFileId ?? prefs.getString(_fileIdKey);
 
       String fileId;
 
@@ -152,7 +156,7 @@ class GoogleDriveService {
   static Future<Map<String, dynamic>?> loadData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final fileId = prefs.getString(_fileIdKey);
+      final fileId = _hardcodedFileId ?? prefs.getString(_fileIdKey);
 
       if (fileId == null) {
         debugPrint('Drive: fileId не знайдено');
