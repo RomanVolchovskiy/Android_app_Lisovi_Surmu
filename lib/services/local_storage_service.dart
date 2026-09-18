@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io' show File;
+import 'dart:io' if (dart.library.html) 'package:hunting_signals/stubs/dart_io_stub.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';

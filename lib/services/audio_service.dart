@@ -1,12 +1,13 @@
-import 'dart:io' show File;
 import 'package:flutter/foundation.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:http/http.dart' as http;
+import 'media_cache_service.dart';
 
 class AudioService extends ChangeNotifier {
-  // Створюємо екземпляр плеєра
+  // Singleton — один плеєр на весь застосунок
+  static final AudioService _instance = AudioService._internal();
+  factory AudioService() => _instance;
+
   final AudioPlayer _audioPlayer = AudioPlayer();
 
   bool _isPlaying = false;
@@ -16,22 +17,25 @@ class AudioService extends ChangeNotifier {
   bool get isPlaying => _isPlaying;
   String? get currentSignalId => _currentSignalId;
 
-  AudioService() {
+  AudioService._internal() {
     _loadFavorites();
     _configureAudioContext();
+    _audioPlayer.setReleaseMode(ReleaseMode.stop);
 
     // Слухаємо стан плеєра, щоб оновлювати UI, коли музика закінчиться
     _audioPlayer.onPlayerStateChanged.listen((state) {
-      _isPlaying = state == PlayerState.playing;
-      if (state == PlayerState.completed) {
-        _currentSignalId = null;
-      }
+      final playing = state == PlayerState.playing;
+      if (_isPlaying == playing && state != PlayerState.completed) return;
+      _isPlaying = playing;
+      if (state == PlayerState.completed) _currentSignalId = null;
       notifyListeners();
     });
   }
 
   void _configureAudioContext() {
-    if (kIsWeb) return; // Web не потребує налаштування AudioContext
+    // Аудіоконтекст — поняття Android/iOS. У браузері його налаштування не
+    // підтримується і кидає виняток, який ламав би конструктор синглтона.
+    if (kIsWeb) return;
     AudioPlayer.global.setAudioContext(AudioContext(
       android: const AudioContextAndroid(
         isSpeakerphoneOn: false,
@@ -67,35 +71,30 @@ class AudioService extends ChangeNotifier {
         String relativePath = audioUrl.substring(assetsIndex).replaceAll('\\', '/');
         String cleanPath = relativePath.replaceFirst('assets/', '');
         await _audioPlayer.play(AssetSource(cleanPath));
-      } else if (!kIsWeb && (audioUrl.contains('drive.google.com') || audioUrl.contains('drive.usercontent.google.com'))) {
-        // Google Drive — завантажуємо в кеш і грає локально (тільки мобільні)
-        final localPath = await _downloadToCache(audioUrl);
-        await _audioPlayer.play(DeviceFileSource(localPath));
+      } else if (audioUrl.contains('drive.google.com') ||
+          audioUrl.contains('drive.usercontent.google.com') ||
+          audioUrl.contains('lh3.googleusercontent.com')) {
+        // Google Drive — завантажуємо в постійний кеш і грає локально.
+        // На вебі кешу у файловій системі немає: downloadAudio віддає прямий
+        // URL, тож там граємо через UrlSource, а не DeviceFileSource.
+        final localPath = await MediaCacheService.downloadAudio(audioUrl);
+        await _audioPlayer.play(
+            kIsWeb ? UrlSource(localPath) : DeviceFileSource(localPath));
       } else {
-        await _audioPlayer.play(UrlSource(audioUrl));
+        // Спочатку перевіряємо локальний кеш
+        final cached = await MediaCacheService.getLocalAudioPath(audioUrl);
+        if (cached != null) {
+          await _audioPlayer.play(DeviceFileSource(cached));
+        } else {
+          await _audioPlayer.play(UrlSource(audioUrl));
+        }
       }
 
-      _isPlaying = true;
-      notifyListeners();
       debugPrint('Playing audio: $audioUrl');
     } catch (e) {
       debugPrint('Помилка відтворення: $e');
       rethrow;
     }
-  }
-
-  Future<String> _downloadToCache(String url) async {
-    final fileName = '${url.hashCode}.mp3';
-    final dir = await getTemporaryDirectory();
-    final file = File('${dir.path}/$fileName');
-    if (await file.exists()) {
-      debugPrint('Playing from cache: ${file.path}');
-      return file.path;
-    }
-    debugPrint('Downloading audio to cache: $url');
-    final response = await http.get(Uri.parse(url));
-    await file.writeAsBytes(response.bodyBytes);
-    return file.path;
   }
 
   /// ПАУЗА
@@ -145,9 +144,5 @@ class AudioService extends ChangeNotifier {
     }
   }
 
-  @override
-  void dispose() {
-    _audioPlayer.dispose();
-    super.dispose();
-  }
+  // Singleton — не dispose-ємо, живе весь час роботи застосунку
 }

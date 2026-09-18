@@ -181,16 +181,17 @@ class _FavoritesScreenState extends State<FavoritesScreen>
           margin: const EdgeInsets.all(16),
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
+            gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Colors.red[700]!, Colors.red[900]!],
+              colors: [Color(0xFF2F4F2F), Color(0xFF1C3A1C)],
             ),
             borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Color(0xFFD4A017), width: 1),
           ),
           child: Row(
             children: [
-              const Icon(Icons.favorite, color: Colors.white, size: 32),
+              const Icon(Icons.favorite, color: Color(0xFFD4A017), size: 32),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -214,7 +215,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
           controller: _tabController,
           labelColor: HuntingTheme.primaryColor,
           unselectedLabelColor: Colors.grey[600],
-          indicatorColor: HuntingTheme.primaryColor,
+          indicatorColor: const Color(0xFFD4A017),
           tabs: const [
             Tab(text: 'Мої обрані'),
             Tab(text: 'Плейлисти'),
@@ -312,47 +313,49 @@ class _FavoritesScreenState extends State<FavoritesScreen>
 
   Widget _buildPlaylistCard(Playlist playlist) {
     return Card(
-      elevation: 2,
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 3,
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(
+          borderRadius: BorderRadius.circular(14),
+          gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Colors.white, Colors.green.withValues(alpha: 0.05)],
+            colors: [Color(0xFFFFF8E7), Color(0xFFE8C87A)],
           ),
+          border: Border.all(color: const Color(0xFFD4A017), width: 1.5),
         ),
         child: Row(
           children: [
             Container(
-              width: 50,
-              height: 50,
+              width: 42,
+              height: 42,
               decoration: BoxDecoration(
-                color: Colors.green.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
+                color: HuntingTheme.primaryColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.queue_music, color: Colors.green, size: 24),
+              child: Icon(Icons.queue_music, color: HuntingTheme.primaryColor, size: 20),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     playlist.name,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
                   Row(
                     children: [
-                      Icon(Icons.audiotrack, size: 14, color: Colors.grey[600]),
+                      Icon(Icons.audiotrack, size: 12, color: Colors.grey[600]),
                       const SizedBox(width: 4),
                       Text(
                         '${playlist.signalIds.length} сигнал(ів)',
-                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                        style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                       ),
                     ],
                   ),
@@ -377,7 +380,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
               },
             ),
             IconButton(
-              icon: const Icon(Icons.play_arrow, color: Colors.green, size: 32),
+              icon: Icon(Icons.play_arrow, color: HuntingTheme.primaryColor, size: 32),
               onPressed: () => _playPlaylist(playlist),
             ),
           ],

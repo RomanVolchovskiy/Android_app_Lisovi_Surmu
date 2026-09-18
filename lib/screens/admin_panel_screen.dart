@@ -3,9 +3,10 @@ import 'package:hunting_signals/screens/main_navigation.dart';
 import 'package:hunting_signals/services/admin_service.dart';
 import 'package:hunting_signals/services/storage_manager.dart';
 import 'package:hunting_signals/screens/add_signal_screen.dart';
-import 'package:hunting_signals/screens/add_education_screen.dart';
+import 'package:hunting_signals/screens/admin_education_screen.dart';
+import 'package:hunting_signals/screens/admin_events_screen.dart';
 import 'package:hunting_signals/screens/edit_signals_screen.dart';
-import 'package:hunting_signals/screens/edit_materials_screen.dart';
+import 'package:hunting_signals/screens/admin_exam_screen.dart';
 
 class AdminPanelScreen extends StatefulWidget {
   const AdminPanelScreen({super.key});
@@ -16,6 +17,97 @@ class AdminPanelScreen extends StatefulWidget {
 
 class _AdminPanelScreenState extends State<AdminPanelScreen> {
   bool _isPublishing = false;
+  bool _passwordRequired = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _passwordRequired = AdminService.passwordRequired;
+  }
+
+  Future<void> _togglePasswordProtection() async {
+    final newValue = !_passwordRequired;
+
+    if (newValue) {
+      // Вмикаємо пароль — просто підтвердження
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Увімкнути пароль?'),
+          content: const Text('Вхід до адмін панелі знову вимагатиме пароль.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Скасувати')),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+              child: const Text('Увімкнути', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      );
+      if (confirm != true) return;
+    } else {
+      // Вимикаємо пароль — потрібне підтвердження поточним паролем
+      final controller = TextEditingController();
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Зняти пароль?'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Введіть поточний пароль для підтвердження:'),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Поточний пароль',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Після цього вхід до адмін панелі буде без пароля.',
+                style: TextStyle(fontSize: 12, color: Colors.red[700]),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Скасувати')),
+            ElevatedButton(
+              onPressed: () async {
+                if (await AdminService.authenticate(controller.text)) {
+                  if (context.mounted) Navigator.pop(context, true);
+                } else {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Неправильний пароль!'), backgroundColor: Colors.red),
+                    );
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red[700]),
+              child: const Text('Зняти пароль', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      );
+      if (confirm != true) return;
+    }
+
+    await AdminService.setPasswordRequired(newValue);
+    if (mounted) setState(() => _passwordRequired = newValue);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(newValue ? 'Захист паролем увімкнено' : 'Захист паролем знято'),
+          backgroundColor: newValue ? Colors.green : Colors.orange,
+        ),
+      );
+    }
+  }
 
   Future<void> _publishToFirebase() async {
     setState(() => _isPublishing = true);
@@ -182,13 +274,13 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                     ),
                     _buildAdminCard(
                       context,
-                      'Додати навчальний матеріал',
-                      Icons.school,
-                      Colors.blue,
+                      'Управління навчанням',
+                      Icons.school_rounded,
+                      Colors.indigo,
                       () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const AddEducationScreen(),
+                          builder: (context) => const AdminEducationScreen(),
                         ),
                       ),
                     ),
@@ -206,13 +298,25 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                     ),
                     _buildAdminCard(
                       context,
-                      'Редагувати навчальні матеріали',
-                      Icons.edit_note,
-                      Colors.purple,
+                      'Управління подіями',
+                      Icons.event_note,
+                      Colors.teal,
                       () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const EditMaterialsScreen(),
+                          builder: (context) => const AdminEventsScreen(),
+                        ),
+                      ),
+                    ),
+                    _buildAdminCard(
+                      context,
+                      'Управління іспитами',
+                      Icons.school_rounded,
+                      Colors.deepPurple,
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const AdminExamScreen(),
                         ),
                       ),
                     ),
@@ -221,6 +325,17 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
               ),
 
               const SizedBox(height: 20),
+              ElevatedButton.icon(
+                onPressed: _togglePasswordProtection,
+                icon: Icon(_passwordRequired ? Icons.lock_open_rounded : Icons.lock_rounded),
+                label: Text(_passwordRequired ? 'Зняти пароль входу' : 'Увімкнути пароль входу'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _passwordRequired ? Colors.orange[700] : Colors.green[700],
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+              const SizedBox(height: 10),
               ElevatedButton.icon(
                 onPressed: () {
                   AdminService.logout();

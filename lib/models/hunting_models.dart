@@ -8,13 +8,22 @@ class HuntingSignal {
   final String category;
   final String? audioUrl;
   final String? videoUrl;
+  final String? videoUrl2;
   final String? notationUrl;
+  final String? notationAudioUrl;
   final String? imageUrl;
+  final List<String>? galleryImages;
   final int duration;
   final List<String>? tags;
   final String? historicalInfo;
   final String? usageInstructions;
   final bool isFavorite;
+  final String? difficulty;
+  final String? signalText;
+  final List<Map<String, dynamic>>? notationData;
+  final int? notationTempo;
+  final int sortOrder;
+  final String? partitureUrl;
 
   HuntingSignal({
     required this.id,
@@ -23,13 +32,22 @@ class HuntingSignal {
     required this.category,
     this.audioUrl,
     this.videoUrl,
+    this.videoUrl2,
     this.notationUrl,
+    this.notationAudioUrl,
     this.imageUrl,
+    this.galleryImages,
     required this.duration,
     this.tags,
     this.historicalInfo,
     this.usageInstructions,
     this.isFavorite = false,
+    this.difficulty,
+    this.signalText,
+    this.notationData,
+    this.notationTempo,
+    this.sortOrder = 0,
+    this.partitureUrl,
   });
 
   Map<String, dynamic> toJson() => {
@@ -39,13 +57,22 @@ class HuntingSignal {
     'category': category,
     'audioUrl': audioUrl,
     'videoUrl': videoUrl,
+    'videoUrl2': videoUrl2,
     'notationUrl': notationUrl,
+    'notationAudioUrl': notationAudioUrl,
     'imageUrl': imageUrl,
+    'galleryImages': galleryImages,
     'duration': duration,
     'tags': tags,
     'historicalInfo': historicalInfo,
     'usageInstructions': usageInstructions,
     'isFavorite': isFavorite,
+    'difficulty': difficulty,
+    'signalText': signalText,
+    'notationData': notationData,
+    'notationTempo': notationTempo,
+    'sortOrder': sortOrder,
+    'partitureUrl': partitureUrl,
   };
 
   factory HuntingSignal.fromJson(Map<String, dynamic> json) => HuntingSignal(
@@ -55,8 +82,13 @@ class HuntingSignal {
     category: json['category']?.toString() ?? '',
     audioUrl: json['audioUrl'],
     videoUrl: json['videoUrl'],
+    videoUrl2: json['videoUrl2'],
     notationUrl: json['notationUrl'],
+    notationAudioUrl: json['notationAudioUrl'],
     imageUrl: json['imageUrl'],
+    galleryImages: json['galleryImages'] != null
+        ? List<String>.from(json['galleryImages'])
+        : null,
     duration: json['duration'] is int
         ? json['duration']
         : int.tryParse(json['duration']?.toString() ?? '0') ?? 0,
@@ -64,6 +96,19 @@ class HuntingSignal {
     historicalInfo: json['historicalInfo'],
     usageInstructions: json['usageInstructions'],
     isFavorite: json['isFavorite'] ?? false,
+    difficulty: json['difficulty'],
+    signalText: json['signalText'],
+    notationData: json['notationData'] != null
+        ? List<Map<String, dynamic>>.from(
+            (json['notationData'] as List).map((e) => Map<String, dynamic>.from(e as Map)))
+        : null,
+    notationTempo: json['notationTempo'] != null
+        ? (json['notationTempo'] as num).toInt()
+        : null,
+    sortOrder: json['sortOrder'] != null
+        ? (json['sortOrder'] as num).toInt()
+        : 0,
+    partitureUrl: json['partitureUrl'],
   );
 
   HuntingSignal copyWith({
@@ -73,13 +118,22 @@ class HuntingSignal {
     String? category,
     String? audioUrl,
     String? videoUrl,
+    String? videoUrl2,
     String? notationUrl,
+    String? notationAudioUrl,
     String? imageUrl,
+    List<String>? galleryImages,
     int? duration,
     List<String>? tags,
     String? historicalInfo,
     String? usageInstructions,
     bool? isFavorite,
+    String? difficulty,
+    String? signalText,
+    List<Map<String, dynamic>>? notationData,
+    int? notationTempo,
+    int? sortOrder,
+    String? partitureUrl,
   }) {
     return HuntingSignal(
       id: id ?? this.id,
@@ -88,13 +142,22 @@ class HuntingSignal {
       category: category ?? this.category,
       audioUrl: audioUrl ?? this.audioUrl,
       videoUrl: videoUrl ?? this.videoUrl,
+      videoUrl2: videoUrl2 ?? this.videoUrl2,
       notationUrl: notationUrl ?? this.notationUrl,
+      notationAudioUrl: notationAudioUrl ?? this.notationAudioUrl,
       imageUrl: imageUrl ?? this.imageUrl,
+      galleryImages: galleryImages ?? this.galleryImages,
       duration: duration ?? this.duration,
       tags: tags ?? this.tags,
       historicalInfo: historicalInfo ?? this.historicalInfo,
       usageInstructions: usageInstructions ?? this.usageInstructions,
       isFavorite: isFavorite ?? this.isFavorite,
+      difficulty: difficulty ?? this.difficulty,
+      signalText: signalText ?? this.signalText,
+      notationData: notationData ?? this.notationData,
+      notationTempo: notationTempo ?? this.notationTempo,
+      sortOrder: sortOrder ?? this.sortOrder,
+      partitureUrl: partitureUrl ?? this.partitureUrl,
     );
   }
 }

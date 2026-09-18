@@ -1,0 +1,8 @@
+name: move_horn
+description: Script to move horn in emblem image
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  image: ^4.5.4

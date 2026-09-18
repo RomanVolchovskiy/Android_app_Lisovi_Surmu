@@ -1,0 +1,29 @@
+rules_version = '2';
+
+// Правила Firebase Storage для huntingsignals.firebasestorage.app.
+//
+// Це цільові правила для теки signals/ (медіа сигналів, які заливає
+// адмін-панель і скрипт scripts/migrate_media_to_storage.py). Перед деплоєм
+// звірте з чинними правилами в консолі Firebase — інші теки (exam_files/)
+// мають лишитися такими, як є.
+//
+// Деплой:  firebase login && firebase deploy --only storage
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Медіа сигналів — публічний контент застосунку: читає будь-хто.
+    // Firebase Auth у застосунку немає (адмін підтверджується локальним
+    // паролем), тому запис не прив'язати до користувача — обмежуємо тип
+    // і розмір файлу, щоб тека не стала анонімним файлообмінником.
+    match /signals/{folder}/{file} {
+      allow read: if true;
+      allow write: if request.resource != null
+                   && request.resource.size < 100 * 1024 * 1024
+                   && request.resource.contentType.matches('(audio|image|video)/.*');
+    }
+
+    // Файли іспитів — завантажує застосунок від імені студента (без Auth).
+    match /exam_files/{allPaths=**} {
+      allow read, write: if true;
+    }
+  }
+}

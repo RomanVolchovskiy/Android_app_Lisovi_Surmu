@@ -64,12 +64,17 @@ dependencies:
   # File operations
   path_provider: ^2.1.5
   file_picker: ^8.0.5
+  archive: ^3.6.1
+  share_plus: ^10.1.4
 
   # HTTP client
   http: ^1.2.2
 
   # Open URLs in browser
   url_launcher: ^6.3.0
+
+  # In-app file viewer (Google Drive preview)
+  webview_flutter: ^4.10.0
 
   # Firebase
   firebase_core: ^3.0.0
@@ -80,12 +85,15 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
 
-  # The "flutter_lints" package below contains a set of recommended lints to
-  # encourage good coding practices. The lint set provided by the package is
-  # activated in the `analysis_options.yaml` file located at the root of your
-  # package. See that file for information about deactivating specific lint
-  # rules and activating additional ones.
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.3
+
+flutter_launcher_icons:
+  android: "ic_launcher"
+  ios: true
+  image_path: "assets/icons/icon1.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "#ffffff"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

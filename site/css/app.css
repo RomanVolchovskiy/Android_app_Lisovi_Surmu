@@ -1,0 +1,353 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   Мисливські Сигнали — стилі сайту.
+   Кольори й розміри повторюють HuntingTheme та віджети Flutter-додатку.
+   ───────────────────────────────────────────────────────────────────────── */
+
+:root {
+  --primary: #2F4F2F;
+  --primary-dark: #1C3A1C;
+  --primary-light: #228B22;
+  --accent: #FFD700;
+  --gold: #D4A017;
+  --bg: #FAF0E6;
+  --brown-800: #4E342E;
+  --brown-50: #EFEBE9;
+  --blue: #1565C0;
+  --blue-700: #1976D2;
+  --orange-700: #F57C00;
+  --teal-600: #00897B;
+  --grey-400: #BDBDBD;
+  --grey-500: #9E9E9E;
+  --grey-600: #757575;
+  --grey-700: #616161;
+  --grey-800: #424242;
+  --text: rgba(0, 0, 0, .87);
+  /* темна палітра переглядача нот / відео */
+  --dk-bg: #1B2A1E;
+  --dk-card: #243328;
+  --dk-border: #4A6741;
+  --dk-text: #CCDDCC;
+
+  --appbar-h: 56px;
+  --nav-h: 64px;
+  --content-max: 960px;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: Roboto, "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+button { font: inherit; cursor: pointer; border: 0; background: none; color: inherit; }
+button:disabled { cursor: default; opacity: .6; }
+input, textarea, select { font: inherit; }
+img { display: block; max-width: 100%; }
+.mi { font-family: "Material Icons Round"; font-size: 24px; line-height: 1; display: inline-block; vertical-align: middle; user-select: none; }
+.hidden { display: none !important; }
+[hidden] { display: none !important; }
+
+/* ── Завантаження ─────────────────────────────────────────────────────────── */
+.boot { height: 100vh; display: grid; place-items: center; }
+.spinner {
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 4px solid rgba(47, 79, 47, .2); border-top-color: var(--primary);
+  animation: spin .9s linear infinite;
+}
+.spinner.light { border-color: rgba(255, 255, 255, .25); border-top-color: #fff; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.center { display: grid; place-items: center; height: 100%; }
+
+/* ── Каркас: app bar, банер, вміст, нижня навігація ───────────────────────── */
+.shell { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+
+.appbar {
+  position: relative; z-index: 10;
+  height: calc(var(--appbar-h) + env(safe-area-inset-top, 0px));
+  padding-top: env(safe-area-inset-top, 0px);
+  background: var(--primary); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 6px rgba(28, 58, 28, .3);
+  flex: none;
+}
+.appbar.brown { background: var(--brown-800); }
+.appbar.dark { background: var(--dk-bg); border-bottom: 1px solid var(--dk-border); }
+.appbar .title {
+  font-size: 20px; font-weight: 700; letter-spacing: .5px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: calc(100% - 112px); text-align: center;
+}
+.appbar .title.sm { font-size: 18px; }
+.appbar .lead, .appbar .actions { position: absolute; top: env(safe-area-inset-top, 0px); height: var(--appbar-h); display: flex; align-items: center; }
+.appbar .lead { left: 4px; }
+.appbar .actions { right: 4px; }
+.iconbtn {
+  width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; color: inherit;
+}
+.iconbtn:hover { background: rgba(255, 255, 255, .12); }
+.iconbtn.dim { color: rgba(0, 0, 0, .54); }
+.iconbtn.dim:hover { background: rgba(0, 0, 0, .06); }
+
+/* Банер показується повністю: пропорції картинки 3:2 на всю ширину; якщо
+   екран низький (ландшафт, десктоп) — висота обмежена, картинка вписується
+   цілком, а з боків лишається темно-зелене тло. */
+.banner { position: relative; flex: none; overflow: hidden; background: #1f2f21; aspect-ratio: 3 / 2; max-height: 48vh; }
+.banner img.bg { position: relative; width: 100%; height: 100%; object-fit: contain; object-position: center; z-index: 1; }
+/* поля з боків — розмита копія тієї ж картинки, а не порожнє тло */
+.banner::before {
+  content: ""; position: absolute; inset: -20px; background: url("../assets/banner.jpg") center / cover no-repeat;
+  filter: blur(18px) brightness(.55);
+}
+.banner::after { content: ""; position: absolute; inset: 0; background: rgba(0, 0, 0, .15); z-index: 2; }
+.banner .logo { position: absolute; left: 10px; top: 8px; width: 72px; height: 72px; object-fit: contain; z-index: 3; }
+/* На широких/низьких екранах картинка вписана з полями — герб уже є на самій
+   картинці, тож накладений дублікат ховаємо, щоб не висів на тлі збоку. */
+@media (min-width: 900px), (orientation: landscape) { .banner .logo { display: none; } }
+
+.content {
+  flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  background: linear-gradient(to bottom, var(--bg), rgba(34, 139, 34, .1));
+}
+.content-inner { max-width: var(--content-max); margin: 0 auto; min-height: 100%; }
+
+.bottomnav {
+  flex: none;
+  background: #fff; border-radius: 20px 20px 0 0;
+  box-shadow: 0 -5px 10px rgba(0, 0, 0, .1);
+  height: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  display: flex; justify-content: space-around; align-items: stretch;
+  position: relative; z-index: 10;
+}
+.bottomnav button {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  color: var(--grey-600); font-size: 11px;
+}
+.bottomnav button.active { color: var(--primary-dark); font-weight: 600; font-size: 12px; }
+.bottomnav button .mi { font-size: 24px; }
+
+/* ── Екран сигналів: фішки категорій ─────────────────────────────────────── */
+.chips-wrap { position: relative; height: 60px; }
+.chips {
+  height: 100%; display: flex; gap: 8px; align-items: center;
+  overflow-x: auto; scrollbar-width: none; padding: 0 52px 0 12px; scroll-behavior: smooth;
+}
+.chips::-webkit-scrollbar { display: none; }
+.chip {
+  flex: none; min-width: 120px; height: 32px; padding: 0 12px;
+  border-radius: 8px; border: 1px solid rgba(0, 0, 0, .12); background: transparent;
+  color: var(--grey-700); font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 6px;
+  white-space: nowrap;
+}
+.chip.selected { background: rgba(47, 79, 47, .2); color: var(--primary-dark); font-weight: 600; border-color: transparent; }
+.chip.selected::before { content: "check"; font-family: "Material Icons Round"; font-size: 18px; }
+.chips-fade { position: absolute; top: 0; bottom: 0; width: 64px; display: flex; align-items: center; pointer-events: none; }
+.chips-fade.left { left: 0; background: linear-gradient(to left, rgba(250, 240, 230, 0), var(--bg)); justify-content: flex-start; padding-left: 6px; }
+.chips-fade.right { right: 0; background: linear-gradient(to right, rgba(250, 240, 230, 0), var(--bg)); justify-content: flex-end; padding-right: 6px; }
+.chips-arrow {
+  pointer-events: auto; width: 28px; height: 28px; border-radius: 50%; background: var(--gold); color: #fff;
+  display: grid; place-items: center; box-shadow: 0 2px 6px rgba(212, 160, 23, .4);
+  animation: nudge .6s ease-in-out infinite alternate;
+}
+.chips-arrow .mi { font-size: 20px; }
+.chips-fade.left .chips-arrow { animation-name: nudge-l; }
+@keyframes nudge { from { transform: translateX(0); } to { transform: translateX(6px); } }
+@keyframes nudge-l { from { transform: translateX(0); } to { transform: translateX(-6px); } }
+
+/* ── Список сигналів і картка ───────────────────────────────────────────── */
+.list { padding: 16px; }
+.empty { text-align: center; color: var(--grey-600); padding: 48px 16px; }
+.empty .mi { font-size: 64px; color: var(--grey-400); }
+.empty .t { font-size: 18px; font-weight: 500; margin-top: 16px; }
+.empty .s { font-size: 14px; color: var(--grey-500); margin-top: 8px; }
+
+.scard {
+  margin-bottom: 8px; border-radius: 14px; cursor: pointer;
+  background: linear-gradient(135deg, #FFF8E7, #E8C87A);
+  border: 1.5px solid var(--gold);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .2), 0 2px 4px rgba(0, 0, 0, .12);
+  padding: 10px 12px;
+}
+.scard .head { display: flex; align-items: center; gap: 10px; }
+.scard .ico { width: 42px; height: 42px; border-radius: 10px; object-fit: cover; flex: none; }
+.scard .name { font-size: 14px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scard .cat { font-size: 11px; color: var(--grey-600); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scard .grow { flex: 1; min-width: 0; }
+.scard .fav { padding: 4px; color: var(--grey-400); }
+.scard .fav .mi { font-size: 20px; }
+.scard .fav.on { color: #F44336; }
+.scard .desc { font-size: 11px; color: var(--grey-700); line-height: 1.3; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scard .btns { display: flex; gap: 5px; margin-top: 8px; }
+
+/* 3D-кнопка картки (_CardBtn) */
+.cbtn {
+  flex: 1; height: 32px; border-radius: 8px; color: #fff; font-size: 11px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center; gap: 3px;
+  background: linear-gradient(to bottom, var(--c-top), var(--c-bot));
+  box-shadow: 0 3px 0 var(--c-shadow), 0 5px 6px color-mix(in srgb, var(--c-shadow) 40%, transparent);
+  transition: transform .08s, box-shadow .08s;
+}
+.cbtn .mi { font-size: 13px; }
+.cbtn:active { transform: translateY(2px); box-shadow: none; }
+.cbtn.outlined { background: rgba(0, 0, 0, .35); border: 1.5px solid var(--c-base); box-shadow: 0 3px 2px color-mix(in srgb, var(--c-shadow) 40%, transparent); }
+.cbtn.outlined:active { box-shadow: none; }
+.cbtn.green { --c-base: #2F4F2F; --c-top: #637b63; --c-bot: #284328; --c-shadow: #1a2c1a; }
+.cbtn.blue { --c-base: #1565C0; --c-top: #508cd0; --c-bot: #1256a3; --c-shadow: #0c386a; }
+.cbtn.grey { --c-base: #757575; --c-top: #979797; --c-bot: #636363; --c-shadow: #404040; }
+
+/* ── Екран деталей сигналу ──────────────────────────────────────────────── */
+.page { display: flex; flex-direction: column; height: 100vh; height: 100dvh; background: var(--brown-50); }
+.page .body { flex: 1; min-height: 0; overflow-y: auto; }
+.page .body-inner { max-width: var(--content-max); margin: 0 auto; padding: 20px; }
+.catbox {
+  display: flex; align-items: center; gap: 8px; padding: 14px; border-radius: 12px;
+  background: rgba(47, 79, 47, .1); color: var(--primary-dark); font-weight: 600; font-size: 15px;
+}
+.catbox .mi { font-size: 20px; }
+.catbox .dur { margin-left: auto; color: var(--grey-600); font-weight: 500; font-size: 14px; display: flex; align-items: center; gap: 4px; }
+.catbox .dur .mi { font-size: 16px; }
+.sec-title { font-size: 16px; font-weight: 700; color: var(--brown-800); margin: 20px 0 8px; }
+.sec-text { font-size: 14px; color: var(--grey-700); line-height: 1.6; white-space: pre-line; }
+.sec-text.lead { font-size: 15px; color: var(--grey-800); }
+.cover { width: 100%; border-radius: 12px; margin-top: 20px; }
+.tags { display: flex; flex-wrap: wrap; gap: 8px 6px; }
+.tag { font-size: 12px; padding: 5px 10px; border-radius: 8px; background: rgba(47, 79, 47, .1); border: 1px solid rgba(47, 79, 47, .3); }
+.actionbar {
+  flex: none; background: #fff; box-shadow: 0 -2px 8px rgba(0, 0, 0, .08);
+  padding: 10px 8px calc(10px + env(safe-area-inset-bottom, 0px));
+  display: flex; justify-content: space-around;
+}
+.abtn { display: flex; flex-direction: column; align-items: center; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; color: var(--c); gap: 4px; }
+.abtn .circ { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--c) 12%, transparent); }
+.abtn .mi { font-size: 26px; }
+.abtn:hover .circ { background: color-mix(in srgb, var(--c) 20%, transparent); }
+
+/* ── Темні екрани (ноти, відео, галерея) ────────────────────────────────── */
+.dark { background: var(--dk-bg); color: var(--dk-text); }
+.dk-card { background: var(--dk-card); border: 1px solid var(--dk-border); border-radius: 12px; padding: 12px; margin-bottom: 14px; }
+.dk-title { display: flex; align-items: center; gap: 8px; color: var(--gold); font-weight: 700; font-size: 13px; margin-bottom: 10px; }
+.dk-title .mi { font-size: 16px; }
+.dk-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--gold); color: var(--gold); font-weight: 600; font-size: 13px; }
+.dk-btn.fill { background: var(--gold); color: #1b2a1e; }
+.dk-btn.fill:hover { background: #e2b12c; }
+.dk-btn .mi { font-size: 18px; }
+.dk-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.notation-img { width: 100%; max-height: 60vh; object-fit: contain; background: #fff; border-radius: 8px; }
+.play-big { width: 64px; height: 64px; border-radius: 50%; background: var(--gold); color: #1b2a1e; display: grid; place-items: center; box-shadow: 0 4px 12px rgba(212, 160, 23, .4); }
+.play-big .mi { font-size: 36px; }
+.signal-text { white-space: pre-line; font-size: 14px; line-height: 1.6; color: #fff; }
+
+input[type=range].gold { width: 100%; accent-color: var(--gold); }
+.tempo-val { color: var(--gold); font-weight: 700; font-size: 22px; min-width: 56px; text-align: center; }
+.tempo-lbl { color: rgba(255, 255, 255, .54); font-size: 11px; }
+.countdown { font-size: 56px; font-weight: 700; color: var(--gold); text-align: center; }
+
+/* графічне відображення нот (NotationDisplayWidget) */
+.staff-wrap { overflow-x: auto; }
+.staff { display: flex; align-items: flex-start; --rowh: 40px; --gap: 4px; --notew: 62px; }
+.staff .labels { width: 54px; flex: none; }
+.staff .labels div { height: var(--rowh); margin-bottom: var(--gap); display: flex; align-items: center; font-size: 10px; font-weight: 700; color: var(--dk-text); }
+.staff .labels div:last-child { margin-bottom: 0; }
+.staff .rows { position: relative; }
+.staff .row { height: var(--rowh); margin-bottom: var(--gap); background: #fff; border-radius: 4px; }
+.staff .row:last-child { margin-bottom: 0; }
+.staff .item { position: absolute; width: var(--notew); height: var(--rowh); display: flex; align-items: center; justify-content: center; border-radius: 6px; }
+.staff .item.cur { background: rgba(212, 160, 23, .35); outline: 2px solid var(--gold); }
+.sq { display: inline-flex; }
+.sq i { width: 9px; height: 9px; margin: 0 1px; border: 1px solid #000; background: transparent; }
+.sq i.f { background: #000; }
+.staff .sym { font-size: 18px; color: #000; font-weight: 700; }
+.staff .cursor { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--gold); }
+
+/* ── Відео ──────────────────────────────────────────────────────────────── */
+.video-area { background: #000; display: grid; place-items: center; }
+.video-area video, .video-area iframe { width: 100%; max-height: 70vh; aspect-ratio: 16 / 9; border: 0; background: #000; }
+.notes-line { color: var(--gold); letter-spacing: 6px; text-align: center; padding: 10px; opacity: .7; }
+
+/* ── Галерея ────────────────────────────────────────────────────────────── */
+.gallery { background: #000; height: 100vh; height: 100dvh; display: flex; flex-direction: column; }
+.gallery .track { flex: 1; display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; }
+.gallery .track::-webkit-scrollbar { display: none; }
+.gallery .slide { flex: none; width: 100%; height: 100%; scroll-snap-align: center; display: grid; place-items: center; }
+.gallery .slide img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.gallery .dots { display: flex; justify-content: center; gap: 6px; padding: 12px; }
+.gallery .dots i { width: 8px; height: 8px; border-radius: 50%; background: rgba(255, 255, 255, .35); }
+.gallery .dots i.on { background: var(--gold); }
+
+/* ── Обране / плейлисти ─────────────────────────────────────────────────── */
+.subtabs { display: flex; background: var(--primary); }
+.subtabs button { flex: 1; padding: 12px 8px; color: rgba(255, 255, 255, .6); font-weight: 600; font-size: 13px; border-bottom: 3px solid transparent; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.subtabs button.active { color: var(--accent); border-bottom-color: var(--accent); }
+.subtabs.scroll { overflow-x: auto; scrollbar-width: none; justify-content: flex-start; }
+.subtabs.scroll button { flex: none; padding: 12px 14px; }
+.subtabs .mi { font-size: 20px; }
+.tile { background: #fff; border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0, 0, 0, .12); display: flex; align-items: center; gap: 12px; }
+.tile .t { font-weight: 600; font-size: 15px; }
+.tile .s { color: var(--grey-600); font-size: 12px; margin-top: 2px; }
+.tile .grow { flex: 1; min-width: 0; }
+.fab { position: fixed; right: 16px; bottom: calc(var(--nav-h) + 16px + env(safe-area-inset-bottom, 0px)); width: 56px; height: 56px; border-radius: 16px; background: var(--primary); color: #fff; display: grid; place-items: center; box-shadow: 0 4px 12px rgba(0, 0, 0, .3); z-index: 5; }
+.fab .mi { font-size: 28px; }
+
+/* ── Кнопки, форми, діалоги ─────────────────────────────────────────────── */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 24px; border-radius: 8px; background: var(--primary); color: #fff; font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, .25); }
+.btn:hover { background: #3a613a; }
+.btn.text { background: none; box-shadow: none; color: var(--primary); }
+.btn.text:hover { background: rgba(47, 79, 47, .08); }
+.btn.danger { background: #C62828; }
+.btn.block { width: 100%; }
+.btn.brown { background: var(--brown-800); }
+.field { display: block; margin-bottom: 16px; }
+.field > span { display: block; font-size: 12px; color: var(--grey-700); margin-bottom: 4px; }
+.field input, .field textarea, .field select {
+  width: 100%; padding: 12px 12px; border-radius: 8px; border: 1px solid rgba(0, 0, 0, .3); background: rgba(255, 255, 255, .9);
+}
+.field input:focus, .field textarea:focus, .field select:focus { outline: 2px solid var(--primary); border-color: transparent; }
+.field.with-btn { position: relative; }
+.field.with-btn input { padding-right: 48px; }
+.field.with-btn .iconbtn { position: absolute; right: 0; bottom: 0; color: var(--primary); }
+.field textarea { min-height: 80px; resize: vertical; }
+.form-section { font-size: 16px; font-weight: 700; color: var(--brown-800); margin: 24px 0 12px; }
+
+.overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, .5); display: grid; place-items: center; z-index: 100; padding: 16px; }
+.dialog { background: #fff; border-radius: 16px; padding: 20px; width: min(420px, 100%); max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0, 0, 0, .3); }
+.dialog.dark { background: var(--dk-card); color: #fff; border: 1px solid var(--dk-border); }
+.dialog h3 { margin: 0 0 12px; font-size: 18px; }
+.dialog .row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.dialog .err { color: #E53935; font-size: 12px; margin-top: -10px; margin-bottom: 10px; }
+.screen { position: fixed; inset: 0; z-index: 50; background: var(--bg); overflow: hidden; }
+
+#toast-root { position: fixed; left: 0; right: 0; bottom: calc(var(--nav-h) + 12px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 200; pointer-events: none; }
+.toast { background: #323232; color: #fff; padding: 12px 18px; border-radius: 6px; font-size: 14px; box-shadow: 0 3px 8px rgba(0, 0, 0, .3); animation: toast-in .2s ease-out; max-width: min(560px, calc(100% - 32px)); }
+.toast.ok { background: #2E7D32; }
+.toast.err { background: #C62828; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
+
+.mini-player { display: flex; align-items: center; gap: 10px; background: var(--primary-dark); color: #fff; padding: 8px 12px; font-size: 13px; }
+.mini-player .grow { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mini-player .iconbtn { width: 40px; height: 40px; }
+.difficulty { font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+.difficulty.easy { background: #E8F5E9; color: #2E7D32; }
+.difficulty.medium { background: #FFF8E1; color: #F57F17; }
+.difficulty.hard { background: #FFEBEE; color: #C62828; }
+
+
+/* ── «Чарівна сурма»: коледжна табличка та музичні елементи лише в грі ─────── */
+.horn-plaque {
+  display: flex; align-items: center; gap: 10px; padding: 6px 12px;
+  background: linear-gradient(180deg, #5a3b1c, #3b2410); border-bottom: 2px solid var(--gold);
+  color: #F5E6C8; font-size: 12px; line-height: 1.25;
+}
+.horn-plaque img { width: 34px; height: 34px; border-radius: 8px; flex: none; }
+.horn-plaque .college { font-family: "Playfair Display", Georgia, serif; font-weight: 600; color: #FFF1C1; font-size: 13px; }
+.horn-plaque .ensemble { color: rgba(245, 230, 200, .8); }
+.horn-plaque .notes { margin-left: auto; color: var(--gold); letter-spacing: 3px; font-size: 14px; white-space: nowrap; }
+@media (max-width: 480px) { .horn-plaque .notes { display: none; } .horn-plaque .college { font-size: 12px; } }
+.horn-card-head { display: flex; align-items: center; gap: 10px; justify-content: center; margin-bottom: 8px; }
+.horn-card-head img { width: 44px; height: 44px; border-radius: 10px; }
+.horn-card-head .college { font-family: "Playfair Display", Georgia, serif; font-size: 12px; color: #FFF1C1; text-align: left; line-height: 1.3; }
+.horn-card-head .ensemble { font-size: 11px; color: var(--dk-text); text-align: left; }

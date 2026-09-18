@@ -1,11 +1,11 @@
 {
-    "name": "hunting_signals",
-    "short_name": "hunting_signals",
+    "name": "Мисливські Сигнали",
+    "short_name": "Сигнали",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#1C3A1C",
+    "theme_color": "#1C3A1C",
+    "description": "Додаток для вивчення та прослуховування традиційних мисливських сигналів",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

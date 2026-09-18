@@ -1,56 +1,126 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hunting_signals/models/hunting_event.dart';
+import 'package:hunting_signals/services/firebase_service.dart';
 
 class EventsService {
-  static const String _key = 'hunting_events';
+  static const String _userEventsKey = 'user_events';
 
-  static Future<List<HuntingEvent>> getEvents() async {
+  // ── USER EVENTS (локальні, з кодом обміну) ────────────────────────
+
+  static Future<List<HuntingEvent>> getUserEvents() async {
     final prefs = await SharedPreferences.getInstance();
-    final jsonStr = prefs.getString(_key);
-    if (jsonStr == null) {
-      final defaults = _defaultEvents();
-      await _saveEvents(defaults);
-      return defaults;
-    }
+    final jsonStr = prefs.getString(_userEventsKey);
+    if (jsonStr == null) return [];
     final List<dynamic> list = jsonDecode(jsonStr);
-    return list.map((e) => HuntingEvent.fromJson(e as Map<String, dynamic>)).toList();
+    return list
+        .map((e) => HuntingEvent.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
-  static Future<void> addEvent(HuntingEvent event) async {
-    final events = await getEvents();
+  /// Creates a personal event, saves locally and uploads to Firebase for sharing.
+  /// Returns the created event (with shareCode).
+  static Future<HuntingEvent> createUserEvent({
+    required String title,
+    required String description,
+    required String location,
+    required DateTime date,
+    required String type,
+    List<String> mainSignalIds = const [],
+    List<String> accompanyingSignalIds = const [],
+  }) async {
+    final event = HuntingEvent(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      title: title,
+      description: description,
+      location: location,
+      date: date,
+      type: type,
+      mainSignalIds: mainSignalIds,
+      accompanyingSignalIds: accompanyingSignalIds,
+      isGlobal: false,
+      shareCode: _generateShareCode(),
+    );
+    final events = await getUserEvents();
     events.add(event);
-    await _saveEvents(events);
+    await _saveUserEvents(events);
+    // Upload to Firebase so it can be found by share code
+    FirebaseService.saveSharedEvent(event.toJson()); // fire-and-forget
+    return event;
   }
 
-  static Future<void> deleteEvent(String id) async {
-    final events = await getEvents();
+  /// Removes a user event from the local list.
+  static Future<void> deleteUserEvent(String id) async {
+    final events = await getUserEvents();
     events.removeWhere((e) => e.id == id);
-    await _saveEvents(events);
+    await _saveUserEvents(events);
   }
 
-  static Future<void> _saveEvents(List<HuntingEvent> events) async {
+  /// Finds an event by share code in Firebase and adds it to the local list.
+  /// Returns null on success, or an error message.
+  static Future<String?> importEventByCode(String code) async {
+    final data = await FirebaseService.findSharedEventByCode(
+      code.toUpperCase(),
+    );
+    if (data == null) return 'Подію з таким кодом не знайдено';
+    final event = HuntingEvent.fromJson(data);
+    if (event.id.isEmpty) return 'Невірні дані події';
+    final events = await getUserEvents();
+    if (events.any((e) => e.id == event.id)) return 'Цю подію вже додано';
+    events.add(event);
+    await _saveUserEvents(events);
+    return null; // null = success
+  }
+
+  // ── GLOBAL EVENTS (Firebase, тільки адмін) ───────────────────────
+
+  static Stream<List<HuntingEvent>> globalEventsStream() {
+    return FirebaseService.globalEventsStream().map((list) {
+      final events =
+          list.map((e) => HuntingEvent.fromJson(e)).toList();
+      events.sort((a, b) => a.date.compareTo(b.date));
+      return events;
+    });
+  }
+
+  static Future<bool> createGlobalEvent(HuntingEvent event) =>
+      FirebaseService.saveGlobalEvent(event.toJson());
+
+  static Future<bool> updateGlobalEvent(HuntingEvent event) =>
+      FirebaseService.saveGlobalEvent(event.toJson());
+
+  static Future<bool> deleteGlobalEvent(String id) =>
+      FirebaseService.deleteGlobalEvent(id);
+
+  /// Fetches a shared event by code and promotes it to a global event
+  /// (visible to all users). Returns null on success, error string on failure.
+  static Future<String?> promoteToGlobal(String shareCode) async {
+    final data = await FirebaseService.findSharedEventByCode(
+      shareCode.toUpperCase(),
+    );
+    if (data == null) return 'Подію з таким кодом не знайдено';
+    final Map<String, dynamic> globalData = Map.from(data)
+      ..['isGlobal'] = true
+      ..['shareCode'] = null;
+    final success = await FirebaseService.saveGlobalEvent(globalData);
+    return success ? null : 'Помилка збереження події';
+  }
+
+  // ── HELPERS ─────────────────────────────────────────────────────
+
+  static Future<void> _saveUserEvents(List<HuntingEvent> events) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_key, jsonEncode(events.map((e) => e.toJson()).toList()));
+    await prefs.setString(
+      _userEventsKey,
+      jsonEncode(events.map((e) => e.toJson()).toList()),
+    );
   }
 
-  static List<HuntingEvent> _defaultEvents() => [
-    HuntingEvent(
-      id: 'evt_001',
-      title: 'Відкриття сезону',
-      description: 'Традиційне відкриття мисливського сезону з урочистою церемонією та виконанням класичних мисливських сигналів.',
-      location: 'Ліс Соснівський',
-      date: DateTime(2026, 10, 15),
-      type: 'Полювання',
-    ),
-    HuntingEvent(
-      id: 'evt_002',
-      title: 'Свято мисливської музики',
-      description: 'Фестиваль традиційної мисливської сигнальної музики за участю мисливських колективів з усієї країни.',
-      location: 'Мисливський клуб "Сокіл"',
-      date: DateTime(2026, 10, 28),
-      type: 'Фестиваль',
-      relatedSignalId: '1',
-    ),
-  ];
+  static String _generateShareCode() {
+    // Unambiguous alphanumeric chars (no 0/O, 1/I/l)
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    final rand = Random.secure();
+    return List.generate(6, (_) => chars[rand.nextInt(chars.length)]).join();
+  }
 }
