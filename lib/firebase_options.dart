@@ -41,18 +41,15 @@ class DefaultFirebaseOptions {
     iosBundleId: 'com.huntingsignals.app',
   );
 
-  // ── Web (потрібно додати Web App у Firebase Console) ─────────────────
-  // Інструкція:
-  // 1. Відкрий console.firebase.google.com → проект huntingsignals
-  // 2. Project Settings → Add App → Web
-  // 3. Скопіюй apiKey, appId, authDomain і встав сюди
+  // ── Web (Web App зареєстровано у Firebase Console) ───────────────────
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyAVSYGp-YOkrkdGwSadfmCuR64xkhlI-pw',
-    appId: '1:718598030499:web:PLACEHOLDER', // <-- замінити після реєстрації
+    apiKey: 'AIzaSyAhVTO38rw3oN0zxgH5_kXGl8Ex6mWPoPE',
+    appId: '1:718598030499:web:de6181196b200ae40f6b16',
     messagingSenderId: '718598030499',
     projectId: 'huntingsignals',
     authDomain: 'huntingsignals.firebaseapp.com',
     databaseURL: 'https://huntingsignals-default-rtdb.firebaseio.com',
     storageBucket: 'huntingsignals.firebasestorage.app',
+    measurementId: 'G-3DZLGD1WCL',
   );
 }

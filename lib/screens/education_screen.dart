@@ -9,6 +9,7 @@ import 'package:hunting_signals/screens/exam_taking_screen.dart';
 import 'package:hunting_signals/screens/study_plan_screen.dart';
 import 'package:hunting_signals/screens/practical_tasks_screen.dart';
 import 'package:hunting_signals/theme/hunting_theme.dart';
+import 'package:hunting_signals/screens/trainers_screen.dart';
 
 class EducationScreen extends StatefulWidget {
   const EducationScreen({super.key});
@@ -26,7 +27,7 @@ class _EducationScreenState extends State<EducationScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
     _loadTopics();
   }
 
@@ -63,6 +64,7 @@ class _EducationScreenState extends State<EducationScreen>
               Tab(icon: Icon(Icons.checklist_rounded, size: 20), text: 'План навчання'),
               Tab(icon: Icon(Icons.style_rounded, size: 20), text: 'Флеш-картки'),
               Tab(icon: Icon(Icons.quiz_rounded, size: 20), text: 'Тестування'),
+              Tab(icon: Icon(Icons.fitness_center_rounded, size: 20), text: 'Навчальні тренажери'),
             ],
           ),
         ),
@@ -92,6 +94,7 @@ class _EducationScreenState extends State<EducationScreen>
                         onRefresh: () { setState(() => _loading = true); _loadTopics(); },
                       ),
                       const _TestingHub(),
+                      const TrainersScreen(),
                     ],
                   ),
           ),

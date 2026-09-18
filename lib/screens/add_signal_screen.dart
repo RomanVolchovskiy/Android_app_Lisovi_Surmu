@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hunting_signals/models/hunting_models.dart';
 import 'package:hunting_signals/services/hunting_data_service.dart';
 import 'package:hunting_signals/services/media_cache_service.dart';
+import 'package:hunting_signals/services/media_storage_service.dart';
 import 'package:hunting_signals/services/storage_manager.dart';
 import 'package:hunting_signals/widgets/notation_editor.dart';
 
@@ -56,6 +57,76 @@ class _AddSignalScreenState extends State<AddSignalScreen> {
   void _applyImageConversion(TextEditingController controller) {
     final converted = _convertForImage(controller.text);
     if (converted != controller.text.trim()) controller.text = converted;
+  }
+
+  /// Поля, для яких зараз триває завантаження файлу у сховище.
+  final Set<TextEditingController> _uploading = {};
+
+  /// Вибрати файл(и) і завантажити у Firebase Storage; URL підставляється
+  /// у поле. Для багаторядкових полів (галерея) — кожен URL з нового рядка.
+  Future<void> _uploadInto(
+    TextEditingController controller, {
+    required String folder,
+    required List<String> extensions,
+    bool multiple = false,
+  }) async {
+    if (_uploading.contains(controller)) return;
+    setState(() => _uploading.add(controller));
+    try {
+      final urls = await MediaStorageService.pickAndUpload(
+        folder: folder,
+        allowedExtensions: extensions,
+        allowMultiple: multiple,
+      );
+      if (urls.isEmpty) return;
+      if (multiple) {
+        final existing = controller.text.trim();
+        controller.text = [if (existing.isNotEmpty) existing, ...urls].join('\n');
+      } else {
+        controller.text = urls.first;
+      }
+    } catch (e) {
+      debugPrint('Помилка завантаження у сховище: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Не вдалося завантажити файл: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploading.remove(controller));
+    }
+  }
+
+  /// Кнопка «завантажити файл» праворуч у полі посилання.
+  Widget _uploadButton(
+    TextEditingController controller, {
+    required String folder,
+    required List<String> extensions,
+    bool multiple = false,
+  }) {
+    if (_uploading.contains(controller)) {
+      return const Padding(
+        padding: EdgeInsets.all(12),
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+    return IconButton(
+      icon: const Icon(Icons.upload_file),
+      tooltip: multiple ? 'Завантажити файли у сховище' : 'Завантажити файл у сховище',
+      onPressed: () => _uploadInto(
+        controller,
+        folder: folder,
+        extensions: extensions,
+        multiple: multiple,
+      ),
+    );
   }
 
   @override
@@ -205,49 +276,79 @@ class _AddSignalScreenState extends State<AddSignalScreen> {
                 _buildTextField(
                   controller: _audioController,
                   label: 'Аудіо файл',
-                  hint: 'URL або Google Drive посилання',
+                  hint: 'Посилання або файл зі сховища',
                   icon: Icons.audiotrack,
                   onEditingComplete: () => _applyMediaConversion(_audioController),
+                  suffix: _uploadButton(
+                    _audioController,
+                    folder: 'audioUrl',
+                    extensions: MediaStorageService.audioExtensions,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 _buildTextField(
                   controller: _videoController,
                   label: 'Відео 1 (кнопка «Дивитися»)',
-                  hint: 'URL або Google Drive посилання',
+                  hint: 'Посилання або файл зі сховища',
                   icon: Icons.videocam,
                   onEditingComplete: () => _applyMediaConversion(_videoController),
+                  suffix: _uploadButton(
+                    _videoController,
+                    folder: 'videoUrl',
+                    extensions: MediaStorageService.videoExtensions,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 _buildTextField(
                   controller: _video2Controller,
                   label: 'Відео 2 (кнопка «Відео» в деталях)',
-                  hint: 'URL або Google Drive посилання',
+                  hint: 'Посилання або файл зі сховища',
                   icon: Icons.videocam_outlined,
                   onEditingComplete: () => _applyMediaConversion(_video2Controller),
+                  suffix: _uploadButton(
+                    _video2Controller,
+                    folder: 'videoUrl2',
+                    extensions: MediaStorageService.videoExtensions,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 _buildTextField(
                   controller: _notationController,
                   label: 'Файл з нотами (зображення)',
-                  hint: 'URL або Google Drive посилання',
+                  hint: 'Посилання або файл зі сховища',
                   icon: Icons.music_note,
                   onEditingComplete: () => _applyImageConversion(_notationController),
+                  suffix: _uploadButton(
+                    _notationController,
+                    folder: 'notationUrl',
+                    extensions: MediaStorageService.imageExtensions,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 _buildTextField(
                   controller: _notationAudioController,
                   label: 'Аудіо до нот (спів із сигналом)',
-                  hint: 'URL або Google Drive посилання',
+                  hint: 'Посилання або файл зі сховища',
                   icon: Icons.mic,
                   onEditingComplete: () => _applyMediaConversion(_notationAudioController),
+                  suffix: _uploadButton(
+                    _notationAudioController,
+                    folder: 'notationAudioUrl',
+                    extensions: MediaStorageService.audioExtensions,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 _buildTextField(
                   controller: _partitureController,
                   label: 'Партитура (захищене зображення)',
-                  hint: 'URL або Google Drive посилання',
+                  hint: 'Посилання або файл зі сховища',
                   icon: Icons.library_music,
                   onEditingComplete: () => _applyImageConversion(_partitureController),
+                  suffix: _uploadButton(
+                    _partitureController,
+                    folder: 'partitureUrl',
+                    extensions: MediaStorageService.imageExtensions,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 _buildTextField(
@@ -261,17 +362,28 @@ class _AddSignalScreenState extends State<AddSignalScreen> {
                 _buildTextField(
                   controller: _imageController,
                   label: 'Зображення (обкладинка)',
-                  hint: 'URL або Google Drive посилання',
+                  hint: 'Посилання або файл зі сховища',
                   icon: Icons.image,
                   onEditingComplete: () => _applyImageConversion(_imageController),
+                  suffix: _uploadButton(
+                    _imageController,
+                    folder: 'imageUrl',
+                    extensions: MediaStorageService.imageExtensions,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 _buildTextField(
                   controller: _galleryController,
                   label: 'Фотогалерея',
-                  hint: 'Кожне посилання з нового рядка',
+                  hint: 'Кожне посилання з нового рядка або файли зі сховища',
                   icon: Icons.photo_library,
                   maxLines: 5,
+                  suffix: _uploadButton(
+                    _galleryController,
+                    folder: 'galleryImages',
+                    extensions: MediaStorageService.imageExtensions,
+                    multiple: true,
+                  ),
                 ),
                 const SizedBox(height: 24),
                 _buildSectionTitle('Графічне відображення нот'),
@@ -381,6 +493,7 @@ class _AddSignalScreenState extends State<AddSignalScreen> {
     IconData? icon,
     String? Function(String?)? validator,
     VoidCallback? onEditingComplete,
+    Widget? suffix,
   }) {
     return TextFormField(
       controller: controller,
@@ -391,6 +504,7 @@ class _AddSignalScreenState extends State<AddSignalScreen> {
         labelText: label,
         hintText: hint,
         prefixIcon: icon != null ? Icon(icon) : null,
+        suffixIcon: suffix,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         filled: true,
         fillColor: Colors.white.withValues(alpha: 0.9),

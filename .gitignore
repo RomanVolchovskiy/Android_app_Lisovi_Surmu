@@ -43,3 +43,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Тимчасові файли міграції медіа (scripts/migrate_media_to_storage.py)
+scripts/media_migration/
+
+# Vercel CLI link
+.vercel/

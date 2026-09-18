@@ -71,7 +71,8 @@ lib/
 │   ├── education_service.dart       # CRUD для навчального контенту
 │   ├── hunting_data_service.dart    # Бізнес-логіка; агрегує Firebase + local
 │   ├── google_drive_service.dart    # Google Drive OAuth (не активний на Android)
-│   ├── media_cache_service.dart     # Кешування аудіо/нотацій, YouTube/Drive helpers
+│   ├── media_cache_service.dart     # Кешування аудіо/нотацій, YouTube helpers
+│   ├── media_storage_service.dart   # Завантаження медіа у Firebase Storage
 │   └── storage_manager.dart         # Вибір типу сховища (local / firebase)
 ├── widgets/
 │   └── signal_card.dart             # Карточка сигналу, нотації, відеоплеєр
@@ -227,8 +228,8 @@ assets/
 | `toYouTubeEmbedUrl(url)` | Конвертує в `youtube.com/embed/ID?playsinline=1&rel=0` |
 | `extractGoogleDriveId(url)` | Витягує file ID з Google Drive URL |
 | `toGoogleDriveThumbnailUrl(url)` | `drive.google.com/thumbnail?id=ID&sz=w480` |
-| `toAudioDownloadUrl(url)` | Конвертує Drive URL для завантаження аудіо |
-| `toImageUrl(url)` | Конвертує Drive URL для відображення зображень |
+| `toAudioDownloadUrl(url)` | Storage-URL повертає як є; застарілі Drive URL → download-URL Drive |
+| `toImageUrl(url)` | те саме для зображень |
 | `downloadAudio(url)` | Завантажує аудіо у постійний кеш |
 | `downloadNotation(url)` | Завантажує зображення нотації у кеш |
 | `preloadSignals(signals)` | Попереднє завантаження всіх аудіо у фоні |
@@ -297,6 +298,32 @@ kotlin.incremental=false
 | Кнопки редагування в адмін-панелі | Частково |
 | Google Drive OAuth для web | Потребує OAuth Client ID у `web/index.html` |
 | Пароль адміна | Hardcoded у `lib/services/admin_service.dart:7` |
+
+---
+
+## Медіа сигналів: Firebase Storage
+
+Файл: `lib/services/media_storage_service.dart`
+
+Аудіо, відео, ноти, обкладинки та галерея сигналів лежать у Firebase Storage
+(`huntingsignals.firebasestorage.app`), у Firestore зберігається їхній
+download-URL. Він прямий, працює однаково на Android і у браузері — жодних
+проксі чи конвертацій не потрібно.
+
+Чому не Google Drive: у браузері запит до Drive іде з кукі користувача,
+на 403 немає CORS-заголовків, тож `<audio>` отримує не аудіо. Раніше це
+обходили Vercel-проксі `api/media.js`; після переїзду в Storage його прибрано.
+
+- Шлях у бакеті: `signals/<поле>/<час>_<назва файлу>` (адмін-панель) або
+  `signals/<поле>/<docId>.<ext>` (міграція).
+- Адмін-панель: кнопка `⬆` у кожному медіа-полі форми сигналу вибирає файл
+  і завантажує його у Storage (`putData` з contentType — без нього браузер
+  не грає файл).
+- Правила бакета: `storage.rules` (деплой `firebase deploy --only storage`).
+- Міграція з Drive: `scripts/migrate_media_to_storage.py` (`fetch` → `push`,
+  є `rollback`; старі посилання лишаються в полі `driveBackup` документа).
+- Аудіо перекодовується у 96 kbps mono — для рога цього достатньо, а файл
+  у 3–5 разів менший.
 
 ---
 

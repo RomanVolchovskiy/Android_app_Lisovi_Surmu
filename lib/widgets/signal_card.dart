@@ -314,72 +314,7 @@ class _SignalDetailScreenState extends State<SignalDetailScreen> {
     );
   }
 
-  void _openNotation() async {
-    final notationUrl = widget.signal.notationUrl;
-    final hasNotationData = widget.signal.notationData != null &&
-        widget.signal.notationData!.isNotEmpty;
-
-    if ((notationUrl == null || notationUrl.isEmpty) && !hasNotationData) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ноти не додані для цього сигналу')),
-      );
-      return;
-    }
-
-    // PDF — відкриваємо в браузері
-    if (notationUrl != null && notationUrl.toLowerCase().endsWith('.pdf')) {
-      final uri = Uri.tryParse(notationUrl);
-      if (uri != null && await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
-      return;
-    }
-
-    // Визначаємо URL для відображення зображення
-    String? displayUrl;
-    if (notationUrl != null && notationUrl.isNotEmpty) {
-      if (notationUrl.startsWith('assets/') || notationUrl.startsWith('/')) {
-        displayUrl = notationUrl;
-      } else {
-        final imageUrl = _toImageUrl(notationUrl);
-        try {
-          final cached = await MediaCacheService.getLocalNotationPath(imageUrl);
-          if (cached != null) {
-            displayUrl = cached;
-          } else {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Завантаження нот...'), duration: Duration(seconds: 10)),
-              );
-            }
-            displayUrl = await MediaCacheService.downloadNotation(imageUrl);
-            if (mounted) ScaffoldMessenger.of(context).hideCurrentSnackBar();
-          }
-        } catch (_) {
-          if (mounted) ScaffoldMessenger.of(context).hideCurrentSnackBar();
-          displayUrl = imageUrl;
-        }
-      }
-    }
-
-    if (mounted) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          fullscreenDialog: true,
-          builder: (_) => _NotationViewerScreen(
-            notationUrl: displayUrl,
-            notationAudioUrl: widget.signal.notationAudioUrl,
-            title: widget.signal.name,
-            signalText: widget.signal.signalText,
-            notationNotes: widget.signal.notationData,
-            notationTempo: widget.signal.notationTempo,
-            partitureUrl: widget.signal.partitureUrl,
-          ),
-        ),
-      );
-    }
-  }
+  void _openNotation() => openSignalNotation(context, widget.signal);
 
   @override
   Widget build(BuildContext context) {
@@ -2488,4 +2423,72 @@ class _FullscreenGraphicNotationScreenState
       ),
     );
   }
+}
+/// Відкриває переглядач нот сигналу (зображення, аудіо до нот, графічні
+/// ноти, текст, партитура). Використовується з деталей сигналу та з
+/// тренажера «Примітивні ноти».
+Future<void> openSignalNotation(BuildContext context, HuntingSignal signal) async {
+  final notationUrl = signal.notationUrl;
+  final hasNotationData = signal.notationData != null && signal.notationData!.isNotEmpty;
+  final hasText = signal.signalText != null && signal.signalText!.isNotEmpty;
+  final hasPartiture = signal.partitureUrl != null && signal.partitureUrl!.isNotEmpty;
+
+  if ((notationUrl == null || notationUrl.isEmpty) && !hasNotationData && !hasText && !hasPartiture) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Ноти не додані для цього сигналу')),
+    );
+    return;
+  }
+
+  // PDF — відкриваємо в браузері
+  if (notationUrl != null && notationUrl.toLowerCase().endsWith('.pdf')) {
+    final uri = Uri.tryParse(notationUrl);
+    if (uri != null && await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+    return;
+  }
+
+  String? displayUrl;
+  if (notationUrl != null && notationUrl.isNotEmpty) {
+    if (notationUrl.startsWith('assets/') || notationUrl.startsWith('/')) {
+      displayUrl = notationUrl;
+    } else {
+      final imageUrl = MediaCacheService.toImageUrl(notationUrl);
+      try {
+        final cached = await MediaCacheService.getLocalNotationPath(imageUrl);
+        if (cached != null) {
+          displayUrl = cached;
+        } else {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Завантаження нот...'), duration: Duration(seconds: 10)),
+            );
+          }
+          displayUrl = await MediaCacheService.downloadNotation(imageUrl);
+          if (context.mounted) ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        }
+      } catch (_) {
+        if (context.mounted) ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        displayUrl = imageUrl;
+      }
+    }
+  }
+
+  if (!context.mounted) return;
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      fullscreenDialog: true,
+      builder: (_) => _NotationViewerScreen(
+        notationUrl: displayUrl,
+        notationAudioUrl: signal.notationAudioUrl,
+        title: signal.name,
+        signalText: signal.signalText,
+        notationNotes: signal.notationData,
+        notationTempo: signal.notationTempo,
+        partitureUrl: signal.partitureUrl,
+      ),
+    ),
+  );
 }

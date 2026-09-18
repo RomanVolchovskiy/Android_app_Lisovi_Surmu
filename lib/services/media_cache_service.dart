@@ -149,42 +149,36 @@ class MediaCacheService {
   }
 
   /// Конвертує Google Drive URL в URL для завантаження аудіо/відео
-  static String toAudioDownloadUrl(String url) {
-    if (url.contains('drive.usercontent.google.com')) return url;
-    final m1 = RegExp(r'drive\.google\.com/file/d/([^/?]+)').firstMatch(url);
-    if (m1 != null) {
-      return 'https://drive.usercontent.google.com/download?id=${m1.group(1)}&export=download&authuser=0&confirm=t';
-    }
-    final m2 = RegExp(r'[?&]id=([^&]+)').firstMatch(url);
-    if (m2 != null) {
-      return 'https://drive.usercontent.google.com/download?id=${m2.group(1)}&export=download&authuser=0&confirm=t';
-    }
-    // Якщо вже lh3 — витягнемо id і переконвертуємо
-    final m3 = RegExp(r'lh3\.googleusercontent\.com/d/([^/?]+)').firstMatch(url);
-    if (m3 != null) {
-      return 'https://drive.usercontent.google.com/download?id=${m3.group(1)}&export=download&authuser=0&confirm=t';
-    }
-    return url;
+  /// Витягує ідентифікатор файлу Drive з будь-якого відомого формату посилання.
+  static String? driveFileId(String url) {
+    final direct = RegExp(r'drive\.google\.com/file/d/([^/?]+)').firstMatch(url);
+    if (direct != null) return direct.group(1);
+    final lh3 = RegExp(r'lh3\.googleusercontent\.com/d/([^/?]+)').firstMatch(url);
+    if (lh3 != null) return lh3.group(1);
+    final query = RegExp(r'[?&]id=([^&]+)').firstMatch(url);
+    if (query != null) return query.group(1);
+    return null;
   }
 
-  /// Конвертує Google Drive URL в URL для відображення зображень
-  static String toImageUrl(String url) {
-    if (url.contains('drive.usercontent.google.com')) return url;
-    final m1 = RegExp(r'drive\.google\.com/file/d/([^/?]+)').firstMatch(url);
-    if (m1 != null) {
-      return 'https://drive.usercontent.google.com/download?id=${m1.group(1)}&export=download&authuser=0&confirm=t';
-    }
-    final m2 = RegExp(r'[?&]id=([^&]+)').firstMatch(url);
-    if (m2 != null) {
-      return 'https://drive.usercontent.google.com/download?id=${m2.group(1)}&export=download&authuser=0&confirm=t';
-    }
-    // lh3 → витягнемо id і переконвертуємо
-    final m3 = RegExp(r'lh3\.googleusercontent\.com/d/([^/?]+)').firstMatch(url);
-    if (m3 != null) {
-      return 'https://drive.usercontent.google.com/download?id=${m3.group(1)}&export=download&authuser=0&confirm=t';
-    }
-    return url;
+  /// Пряме посилання на файл для завантаження/відтворення.
+  ///
+  /// Основне сховище медіа — Firebase Storage: його download-URL уже прямий
+  /// і працює однаково на всіх платформах, тож повертається без змін.
+  ///
+  /// Посилання на Google Drive лишились із часів, коли файли лежали там;
+  /// їх переводимо на download-URL Drive. У браузері такі файли, як правило,
+  /// не грають (запит іде з кукі, на 403 немає CORS) — для вебу файл треба
+  /// завантажити у сховище через адмін-панель.
+  static String _mediaUrl(String url) {
+    final id = driveFileId(url);
+    if (id == null) return url;
+    return 'https://drive.usercontent.google.com/download?id=$id&export=download&authuser=0&confirm=t';
   }
+
+  static String toAudioDownloadUrl(String url) => _mediaUrl(url);
+
+  /// Конвертує посилання в URL для відображення зображень
+  static String toImageUrl(String url) => _mediaUrl(url);
 
   /// Повертає локальний шлях до нотації (якщо закешована), інакше null
   static Future<String?> getLocalNotationPath(String url) async {
