@@ -7,6 +7,7 @@
 // довжина плитки — тривалість ноти. Влучив на лінії — звучить нота.
 import { h, icon, pushScreen, appBar, openDialog, toast } from '../ui.js';
 import { SITE } from '../config.js';
+import { audioCtx, playTone } from '../horn-synth.js';
 
 // Висота в notationData (0 = СОЛЬ2 … 4 = ДО) → доріжка зліва направо від
 // низької до високої; частоти C4, G4, C5, E5, G5.
@@ -39,35 +40,6 @@ const FALL_SECONDS = 2.4;    // скільки секунд плитка лет�
 const WINDOW_GOOD = 0.28;    // с — «добре»
 const WINDOW_PERFECT = 0.10; // с — «ідеально»
 const PERSPECTIVE = 0.9;     // «фокусна відстань» у секундах: менше — сильніша перспектива
-
-// ── Синтез звуку сурми (Web Audio) ───────────────────────────────────────────
-let actx = null;
-function audioCtx() {
-  if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
-  if (actx.state === 'suspended') actx.resume();
-  return actx;
-}
-function playTone(freq, seconds) {
-  const c = audioCtx();
-  const t = c.currentTime;
-  const out = c.createGain();
-  out.gain.setValueAtTime(0.0001, t);
-  out.gain.exponentialRampToValueAtTime(0.5, t + 0.03);
-  out.gain.setValueAtTime(0.5, t + Math.max(0.05, seconds - 0.12));
-  out.gain.exponentialRampToValueAtTime(0.0001, t + seconds + 0.05);
-  const lp = c.createBiquadFilter();
-  lp.type = 'lowpass'; lp.frequency.value = 1400; lp.Q.value = 0.7;
-  const saw = c.createOscillator(); saw.type = 'sawtooth'; saw.frequency.value = freq;
-  const tri = c.createOscillator(); tri.type = 'triangle'; tri.frequency.value = freq;
-  const vib = c.createOscillator(); vib.frequency.value = 5.5;
-  const vibGain = c.createGain(); vibGain.gain.value = freq * 0.004;
-  vib.connect(vibGain); vibGain.connect(saw.frequency); vibGain.connect(tri.frequency);
-  const sawG = c.createGain(); sawG.gain.value = 0.35;
-  const triG = c.createGain(); triG.gain.value = 0.65;
-  saw.connect(sawG).connect(lp); tri.connect(triG).connect(lp);
-  lp.connect(out).connect(c.destination);
-  [saw, tri, vib].forEach((o) => { o.start(t); o.stop(t + seconds + 0.1); });
-}
 
 /** Нотація → плитки з часом (у секундах) та тривалістю. */
 function buildTiles(notes, tempo) {

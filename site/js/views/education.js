@@ -7,6 +7,7 @@ import { audio } from '../audio.js';
 import { openVideo } from './video.js';
 import { openNotation } from './notation.js';
 import { openMagicHorn } from './trainer-horn.js';
+import { openMetronome } from './trainer-metronome.js';
 
 const cache = {};
 async function col(name, filterField, filterValue) {
@@ -316,6 +317,7 @@ function runQuiz(title, questions, renderPrompt) {
 const TRAINERS = [
   { id: 'notes', icon: 'music_note', label: 'Примітивні ноти', render: primitiveNotesTrainer },
   { id: 'horn', icon: 'sports_esports', label: 'Чарівна сурма', render: magicHornTrainer },
+  { id: 'metronome', icon: 'timer', label: 'Метроном', render: metronomeTrainer },
 ];
 
 async function trainersTab() {
@@ -364,4 +366,14 @@ function magicHornTrainer() {
     h('div', { class: 's', style: { color: 'var(--grey-600)', margin: '4px 0 10px' } }, 'Гра на кшталт «Piano Tiles»: ноти сигналу падають на доріжки — влучайте в них у ритмі, і сурма заграє мелодію.'),
     playable.length ? playable.map((s) => row(s, true)) : h('div', { class: 's', style: { color: 'var(--grey-600)' } }, 'Поки жоден сигнал не має графічних нот.'),
     rest.length ? [h('div', { class: 'sec-title', style: { fontSize: '13px', color: 'var(--grey-600)' } }, 'Без графічних нот'), rest.map((s) => row(s, false))] : null);
+}
+
+/** «Метроном»: картка-запуск; сам метроном — окремий екран. */
+function metronomeTrainer() {
+  return h('div', {},
+    h('div', { class: 's', style: { color: 'var(--grey-600)', margin: '4px 0 10px' } }, 'Метроном зі звуком мисливського рога: темп 30–250 BPM, розміри від 1/4 до 12/8, підрозділи долі, акценти, відстукування темпу.'),
+    h('div', { class: 'tile', style: { cursor: 'pointer' }, onClick: openMetronome },
+      h('div', { style: { width: '44px', height: '44px', borderRadius: '12px', background: 'rgba(212,160,23,.18)', display: 'grid', placeItems: 'center', color: 'var(--gold)' } }, icon('timer')),
+      h('div', { class: 'grow' }, h('div', { class: 't' }, 'Відкрити метроном'), h('div', { class: 's' }, 'Сильна доля — СОЛЬ2, слабкі — ДО2, підрозділи — ДО')),
+      icon('play_arrow', '')));
 }

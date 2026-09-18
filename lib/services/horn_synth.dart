@@ -18,56 +18,91 @@ class HornSynth {
   static const int _sampleRate = 22050;
   static const double _seconds = 0.7;
 
+  /// Удари метронома: [частота, тривалість, гучність]. Сильна доля — СОЛЬ2,
+  /// звичайна — ДО2, підрозділ — тихе коротке ДО.
+  static const List<(double, double, double)> clicks = [
+    (783.99, 0.20, 1.0),
+    (523.25, 0.15, 0.85),
+    (261.63, 0.07, 0.35),
+  ];
+  static const int clickAccent = 0, clickBeat = 1, clickSub = 2;
+
   final List<AudioPlayer> _players = [];
-  bool _ready = false;
-  Future<void>? _init;
+  final List<AudioPlayer> _clickPlayers = [];
+  bool _ready = false, _clicksReady = false;
+  Future<void>? _init, _clickInit;
 
   Future<void> ensureReady() => _init ??= _prepare();
 
+  /// Готує короткі удари для метронома (окремо від нот гри).
+  Future<void> ensureClicksReady() => _clickInit ??= _prepareClicks();
+
+  Future<AudioPlayer> _playerFor(String id, Uint8List wav) async {
+    final player = AudioPlayer(playerId: id);
+    await player.setReleaseMode(ReleaseMode.stop);
+    if (kIsWeb) {
+      await player.setSource(BytesSource(wav));
+    } else {
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/$id.wav');
+      if (!await file.exists() || await file.length() != wav.length) {
+        await file.writeAsBytes(wav, flush: true);
+      }
+      await player.setPlayerMode(PlayerMode.lowLatency);
+      await player.setSource(DeviceFileSource(file.path));
+    }
+    return player;
+  }
+
   Future<void> _prepare() async {
     for (var i = 0; i < frequencies.length; i++) {
-      final wav = _renderWav(frequencies[i]);
-      final player = AudioPlayer(playerId: 'horn_$i');
-      await player.setReleaseMode(ReleaseMode.stop);
-      if (kIsWeb) {
-        await player.setSource(BytesSource(wav));
-      } else {
-        final dir = await getTemporaryDirectory();
-        final file = File('${dir.path}/horn_$i.wav');
-        if (!await file.exists() || await file.length() != wav.length) {
-          await file.writeAsBytes(wav, flush: true);
-        }
-        await player.setPlayerMode(PlayerMode.lowLatency);
-        await player.setSource(DeviceFileSource(file.path));
-      }
-      _players.add(player);
+      _players.add(await _playerFor('horn_$i', _renderWav(frequencies[i], _seconds, 1.0)));
     }
     _ready = true;
   }
 
-  /// Грає ноту доріжки [lane] (0 = ДО … 4 = СОЛЬ2).
-  Future<void> play(int lane) async {
-    if (!_ready || lane < 0 || lane >= _players.length) return;
-    final p = _players[lane];
+  Future<void> _prepareClicks() async {
+    for (var i = 0; i < clicks.length; i++) {
+      final (f, sec, gain) = clicks[i];
+      _clickPlayers.add(await _playerFor('metro_$i', _renderWav(f, sec, gain)));
+    }
+    _clicksReady = true;
+  }
+
+  static Future<void> _trigger(AudioPlayer p, double volume) async {
     try {
       await p.stop();
+      await p.setVolume(volume);
       await p.resume();
     } catch (e) {
       debugPrint('HornSynth: $e');
     }
   }
 
+  /// Грає ноту доріжки [lane] (0 = ДО … 4 = СОЛЬ2).
+  Future<void> play(int lane) async {
+    if (!_ready || lane < 0 || lane >= _players.length) return;
+    await _trigger(_players[lane], 1.0);
+  }
+
+  /// Удар метронома: [kind] — clickAccent / clickBeat / clickSub.
+  Future<void> click(int kind, {double volume = 1.0}) async {
+    if (!_clicksReady || kind < 0 || kind >= _clickPlayers.length) return;
+    await _trigger(_clickPlayers[kind], volume);
+  }
+
   Future<void> dispose() async {
-    for (final p in _players) {
+    for (final p in [..._players, ..._clickPlayers]) {
       await p.dispose();
     }
     _players.clear();
-    _ready = false;
+    _clickPlayers.clear();
+    _ready = _clicksReady = false;
   }
 
   /// Рендерить ноту в 16-бітний mono WAV.
-  static Uint8List _renderWav(double freq) {
-    final n = (_sampleRate * _seconds).round();
+  static Uint8List _renderWav(double freq, double seconds, double gain) {
+    final n = (_sampleRate * seconds).round();
     final samples = Float64List(n);
     double lp = 0; // одно-полюсний фільтр низьких частот
     final alpha = 1 - exp(-2 * pi * 1400 / _sampleRate);
@@ -79,16 +114,17 @@ class HornSynth {
       final tri = ph < 0.5 ? 4 * ph - 1 : 3 - 4 * ph;
       final raw = 0.35 * saw + 0.65 * tri;
       lp += alpha * (raw - lp);
-      // огинаюча: атака 30 мс, утримання, спад в останні 150 мс
+      // огинаюча: атака 30 мс, утримання, спад в останні 120 мс
+      final release = seconds < 0.3 ? seconds * 0.5 : 0.12;
       double env;
       if (t < 0.03) {
         env = t / 0.03;
-      } else if (t > _seconds - 0.15) {
-        env = (_seconds - t) / 0.15;
+      } else if (t > seconds - release) {
+        env = (seconds - t) / release;
       } else {
         env = 1;
       }
-      samples[i] = lp * env * 0.6;
+      samples[i] = lp * env * 0.6 * gain;
     }
     final data = ByteData(44 + n * 2);
     void str(int off, String s) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:hunting_signals/models/hunting_models.dart';
 import 'package:hunting_signals/screens/magic_horn_game_screen.dart';
+import 'package:hunting_signals/screens/metronome_screen.dart';
 import 'package:hunting_signals/services/hunting_data_service.dart';
 import 'package:hunting_signals/theme/hunting_theme.dart';
 import 'package:hunting_signals/widgets/signal_card.dart' show openSignalNotation;
@@ -26,6 +27,7 @@ class _TrainersScreenState extends State<TrainersScreen> {
   static const _trainers = [
     (icon: Icons.music_note_rounded, label: 'Примітивні ноти'),
     (icon: Icons.sports_esports_rounded, label: 'Чарівна сурма'),
+    (icon: Icons.timer_rounded, label: 'Метроном'),
   ];
 
   @override
@@ -76,7 +78,7 @@ class _TrainersScreenState extends State<TrainersScreen> {
         Expanded(
           child: _loading
               ? const Center(child: CircularProgressIndicator())
-              : (_current == 0 ? _primitiveNotes() : _magicHorn()),
+              : (_current == 0 ? _primitiveNotes() : _current == 1 ? _magicHorn() : _metronome()),
         ),
       ],
     );
@@ -171,6 +173,29 @@ class _TrainersScreenState extends State<TrainersScreen> {
                 onTap: () => ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Для гри потрібне графічне відображення нот — додайте його в адмін-панелі')))),
         ],
+      ],
+    );
+  }
+
+  Widget _metronome() {
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 16),
+      children: [
+        _hint('Метроном зі звуком мисливського рога: темп 30–250 BPM, розміри від 1/4 до 12/8, підрозділи долі, акценти, відстукування темпу.'),
+        Card(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+          child: ListTile(
+            leading: Container(
+              width: 44, height: 44, alignment: Alignment.center,
+              decoration: BoxDecoration(color: const Color(0xFFD4A017).withValues(alpha: .18), borderRadius: BorderRadius.circular(12)),
+              child: const Icon(Icons.timer_rounded, color: Color(0xFFD4A017)),
+            ),
+            title: const Text('Відкрити метроном', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+            subtitle: const Text('Сильна доля — СОЛЬ2, слабкі — ДО2, підрозділи — ДО', style: TextStyle(fontSize: 12)),
+            trailing: const Icon(Icons.play_arrow_rounded, color: HuntingTheme.primaryColor),
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MetronomeScreen())),
+          ),
+        ),
       ],
     );
   }
