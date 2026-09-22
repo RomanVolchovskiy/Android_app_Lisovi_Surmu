@@ -17,7 +17,12 @@ export function createShell({ onTab }) {
   const title = h('div', { class: 'title' }, TABS[0].title);
   const content = h('div', { class: 'content' });
   const inner = h('div', { class: 'content-inner' });
-  content.append(inner);
+  // Банер — усередині прокручуваної області: видно на початку вкладки,
+  // а під час гортання списку йде вгору й звільняє екран для вмісту.
+  const banner = h('div', { class: 'banner' },
+    h('img', { class: 'bg', src: 'assets/banner.jpg', alt: '' }),
+    h('img', { class: 'logo', src: 'assets/icon.png', alt: 'Лісові сурми' }));
+  content.append(banner, inner);
 
   const navButtons = TABS.map((t) => h('button', { onClick: () => onTab(t.id), 'data-tab': t.id }, icon(t.icon), h('span', {}, t.label)));
 
@@ -41,9 +46,6 @@ export function createShell({ onTab }) {
       h('div', { class: 'actions' },
         h('button', { class: 'iconbtn', title: 'Мій акаунт', onClick: () => openAccount() }, icon('account_circle')),
         h('button', { class: 'iconbtn', title: 'Адміністратор', onClick: () => openAdmin() }, icon('admin_panel_settings')))),
-    h('div', { class: 'banner' },
-      h('img', { class: 'bg', src: 'assets/banner.jpg', alt: '' }),
-      h('img', { class: 'logo', src: 'assets/icon.png', alt: 'Лісові сурми' })),
     accessBanner(),
     mini,
     content,
