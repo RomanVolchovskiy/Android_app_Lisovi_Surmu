@@ -33,7 +33,7 @@
 3. Перший запуск: реєстрація → лист із підтвердженням → вхід.
 
 ## Технічне
-- versionName 1.1.0, versionCode 3, minSdk 24, targetSdk 36, Flutter 3.41.5.
+- versionName 1.1.0, versionCode 4, minSdk 24, targetSdk 36, Flutter 3.41.5.
 - Іконка застосунку — герб (`launcher_icons/`, `dart run flutter_launcher_icons`).
 - Підпис: debug-ключ цієї машини (`~/.android/debug.keystore`) — як і в 1.0.
   Для Google Play потрібен окремий release-keystore (`android/key.properties`);
