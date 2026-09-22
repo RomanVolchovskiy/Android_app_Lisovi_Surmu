@@ -397,3 +397,8 @@ input[type=range].gold { width: 100%; accent-color: var(--gold); }
 .auth-download:hover { background: rgba(255, 255, 255, .2); }
 .auth-download .mi { color: #A5D6A7; }
 .auth-download small { margin-left: auto; font-weight: 400; color: rgba(255, 255, 255, .7); font-size: 11.5px; }
+/* Те саме посилання на APK, але на світлому тлі екрана «Мій акаунт». */
+.apk-tile { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; padding: 12px 14px; border-radius: 12px; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .12); color: var(--primary-dark); text-decoration: none; font-weight: 600; font-size: 14px; }
+.apk-tile:hover { background: rgba(47, 79, 47, .06); }
+.apk-tile .mi { color: var(--primary-light); }
+.apk-tile small { margin-left: auto; font-weight: 400; color: var(--grey-600); font-size: 11.5px; }

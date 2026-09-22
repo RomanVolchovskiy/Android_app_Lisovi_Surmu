@@ -8,6 +8,14 @@ import {
 
 const errText = (e) => (e instanceof AccessError ? e.message : `Помилка: ${e?.message || e}`);
 
+// Готовий APK лежить у site/downloads/ (роздається Vercel, у git не входить).
+// Нова версія: покласти файл і оновити ці два рядки.
+const APK_FILE = 'downloads/LisoviSurmy_v1.1.0_arm64.apk';
+const APK_LABEL = 'APK, 31 МБ · версія 1.1.0';
+
+const apkLink = (cls) => h('a', { class: cls, href: APK_FILE, download: '' },
+  icon('android'), h('span', {}, 'Завантажити додаток для Android'), h('small', {}, APK_LABEL));
+
 function authFrame(...children) {
   return h('div', { class: 'auth-page' },
     h('div', { class: 'auth-card' },
@@ -83,9 +91,7 @@ export function renderAuth() {
   // домени/тривалість — з Firestore, підказка оновлюється після завантаження
   loadConfig().then(() => hintsEl.replaceWith(hints())).catch(() => {});
   setTimeout(() => email.focus(), 50);
-  const download = h('a', { class: 'auth-download', href: 'downloads/LisoviSurmy_v1.1.0_arm64.apk', download: '' },
-    icon('android'), h('span', {}, 'Завантажити додаток для Android'), h('small', {}, 'APK, 31 МБ · версія 1.1.0'));
-  return authFrame(form, hintsEl, download);
+  return authFrame(form, hintsEl, apkLink('auth-download'));
 }
 
 // ── Підтвердження пошти ──────────────────────────────────────────────────────
@@ -218,6 +224,7 @@ export function openAccount() {
         h('button', { class: 'btn text block', style: { border: '1px solid var(--primary)', marginBottom: '24px' }, onClick: async () => {
           try { await resetPassword(user.email); toast(`Лист для зміни пароля надіслано на ${user.email}`, 'ok'); } catch (e) { toast(errText(e), 'err'); }
         } }, icon('password'), 'Змінити пароль'),
+        apkLink('apk-tile'),
         h('button', { class: 'btn text block', style: { color: '#C62828' }, onClick: async () => {
           if (await confirmDialog('Вийти з акаунта?', 'Для входу знову знадобляться пошта й пароль.', { okLabel: 'Вийти', cancelLabel: 'Скасувати', danger: true })) {
             ctx.pop(); logout();

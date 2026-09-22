@@ -14,9 +14,12 @@
 - https://lisovi-surmy-site.vercel.app/downloads/LisoviSurmy_v1.1.0_arm64.apk
 - https://lisovi-surmy-site.vercel.app/downloads/LisoviSurmy_v1.1.0_arm32.apk
 
-Те саме посилання є на екрані входу сайту («Завантажити додаток для Android»).
-Для нової версії: покласти новий APK у `site/downloads/`, оновити ім'я файлу
-в `site/js/views/access.js` і `vercel deploy --prod` із теки `site/`.
+Те саме посилання є на сайті у двох місцях: на екрані входу та в «Мій акаунт»
+(іконка 👤 у шапці).
+
+Для нової версії: покласти новий APK у `site/downloads/`, оновити `APK_FILE`
+і `APK_LABEL` на початку `site/js/views/access.js`, тоді `vercel deploy --prod`
+із теки `site/`.
 
 ## Що нового в 1.1.0
 - Вхід за поштою і паролем (Firebase Auth), підтвердження пошти.
