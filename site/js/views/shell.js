@@ -3,6 +3,7 @@
 import { h, icon, clear } from '../ui.js';
 import { audio } from '../audio.js';
 import { openAdmin } from './admin.js';
+import { openAccount, accessBanner } from './access.js';
 import { getSignals } from '../data.js';
 
 const TABS = [
@@ -38,10 +39,12 @@ export function createShell({ onTab }) {
     h('div', { class: 'appbar' },
       title,
       h('div', { class: 'actions' },
+        h('button', { class: 'iconbtn', title: 'Мій акаунт', onClick: () => openAccount() }, icon('account_circle')),
         h('button', { class: 'iconbtn', title: 'Адміністратор', onClick: () => openAdmin() }, icon('admin_panel_settings')))),
     h('div', { class: 'banner' },
       h('img', { class: 'bg', src: 'assets/banner.jpg', alt: '' }),
       h('img', { class: 'logo', src: 'assets/icon.png', alt: 'Лісові сурми' })),
+    accessBanner(),
     mini,
     content,
     h('nav', { class: 'bottomnav' }, navButtons));

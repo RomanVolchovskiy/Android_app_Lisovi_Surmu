@@ -50,3 +50,9 @@ scripts/media_migration/
 
 # Vercel CLI link
 .vercel/
+
+# Готові збірки — великі бінарники, роздаються окремо
+releases/*.apk
+
+# Готові APK для скачування з сайту — роздаються через Vercel, не через git
+site/downloads/*.apk

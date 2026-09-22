@@ -7,6 +7,7 @@ import 'package:hunting_signals/screens/admin_education_screen.dart';
 import 'package:hunting_signals/screens/admin_events_screen.dart';
 import 'package:hunting_signals/screens/edit_signals_screen.dart';
 import 'package:hunting_signals/screens/admin_exam_screen.dart';
+import 'package:hunting_signals/screens/admin_access_screen.dart';
 
 class AdminPanelScreen extends StatefulWidget {
   const AdminPanelScreen({super.key});
@@ -317,6 +318,18 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                         context,
                         MaterialPageRoute(
                           builder: (context) => const AdminExamScreen(),
+                        ),
+                      ),
+                    ),
+                    _buildAdminCard(
+                      context,
+                      'Коди доступу',
+                      Icons.vpn_key_rounded,
+                      Colors.brown,
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const AdminAccessScreen(),
                         ),
                       ),
                     ),

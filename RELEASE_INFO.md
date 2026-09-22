@@ -1,29 +1,40 @@
-# Hunting Signals - Android APK Release
+# Лісові Сурми — реліз 1.1.0 (22.09.2026)
 
-## 📱 APK Information
-- **File**: releases/HuntingSignals_v1.0.apk
-- **Size**: 48 MB
-- **Version**: 1.0
-- **Build**: Release (optimized)
+## Файли (`releases/`)
 
-## 🎯 Features
-- ✅ Hunting signals management
-- ✅ Educational materials
-- ✅ Firebase integration
-- ✅ Admin panel (password: 1488)
-- ✅ Web preview
-- ✅ Android compatible
+| Файл | Розмір | Для кого |
+|---|---|---|
+| `LisoviSurmy_v1.1.0_arm64.apk` | 31 МБ | усі сучасні телефони (2017+) — **основний файл** |
+| `LisoviSurmy_v1.1.0_arm32.apk` | 29 МБ | старі 32-бітні телефони |
+| `LisoviSurmy_v1.1.0_universal.apk` | 69 МБ | будь-який пристрій/емулятор (містить усі архітектури) |
 
-## 📲 Installation
-1. Download the APK file
-2. Enable "Unknown sources" in Android settings
-3. Install the APK
-4. Open app and use password 1488 for admin access
+Контрольні суми — `releases/SHA256SUMS.txt`.
 
-## 🔧 Technical Details
-- Flutter 3.35.4
-- Firebase Firestore
-- Android API 35
-- Release build optimized
+Посилання для скачування (роздаються через сайт, тека `site/downloads/`):
+- https://lisovi-surmy-site.vercel.app/downloads/LisoviSurmy_v1.1.0_arm64.apk
+- https://lisovi-surmy-site.vercel.app/downloads/LisoviSurmy_v1.1.0_arm32.apk
 
-Ready for installation and testing!
+Те саме посилання є на екрані входу сайту («Завантажити додаток для Android»).
+Для нової версії: покласти новий APK у `site/downloads/`, оновити ім'я файлу
+в `site/js/views/access.js` і `vercel deploy --prod` із теки `site/`.
+
+## Що нового в 1.1.0
+- Вхід за поштою і паролем (Firebase Auth), підтвердження пошти.
+- Корпоративна пошта коледжу — безкоштовно; інші — 30 днів; далі код доступу.
+- Адмін-панель → «Коди доступу» (створення, ліміти, термін, хто активував).
+- Тренажери: «Метроном», «Чарівна сурма», примітивні ноти.
+- Медіа у Firebase Storage.
+
+Деталі: `docs/ACCESS.md`.
+
+## Встановлення
+1. Скопіювати APK на телефон, відкрити, дозволити «Встановлення з невідомих джерел».
+2. Якщо стоїть версія 1.0 — оновлення станеться поверх (підпис той самий).
+3. Перший запуск: реєстрація → лист із підтвердженням → вхід.
+
+## Технічне
+- versionName 1.1.0, versionCode 2, minSdk 24, targetSdk 36, Flutter 3.41.5.
+- Підпис: debug-ключ цієї машини (`~/.android/debug.keystore`) — як і в 1.0.
+  Для Google Play потрібен окремий release-keystore (`android/key.properties`);
+  після зміни ключа користувачам доведеться перевстановити додаток.
+- Веб-версія: https://lisovi-surmy-site.vercel.app (деплой із `site/`).

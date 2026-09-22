@@ -1,0 +1,3 @@
+fc21ca9a91a579f70bc05ddfd2f89c106a7c5e2b1d46c7ef73a0fffa82d0b4de *LisoviSurmy_v1.1.0_arm32.apk
+48474eeb54755983a835c1dfb990183c7394c8b0fde380f1904611162072454e *LisoviSurmy_v1.1.0_arm64.apk
+2d546159bf2bd2223dbe6b5bd220c74d908e8e299f1513d6a5e216e0f5d9fcdb *LisoviSurmy_v1.1.0_universal.apk

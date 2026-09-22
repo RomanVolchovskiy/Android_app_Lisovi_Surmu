@@ -95,6 +95,10 @@ export function popScreen(el) {
   ctx.onPop?.();
   e.remove();
 }
+/** Закриває всі повноекранні екрани (вихід з акаунта, втрата доступу). */
+export function closeAllScreens() {
+  while (stack.length) { const { el: e, ctx } = stack.pop(); ctx.onPop?.(); e.remove(); }
+}
 window.addEventListener('popstate', () => {
   // кнопка «назад» браузера закриває верхній екран
   if (stack.length) { const { el: e, ctx } = stack.pop(); ctx.onPop?.(); e.remove(); }

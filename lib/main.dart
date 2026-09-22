@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:hunting_signals/firebase_options.dart';
 import 'package:flutter/services.dart';
+import 'package:hunting_signals/services/access_service.dart';
 import 'package:hunting_signals/services/hunting_data_service.dart';
 import 'package:hunting_signals/services/media_cache_service.dart';
 import 'package:hunting_signals/services/storage_manager.dart';
@@ -16,6 +17,7 @@ import 'screens/categories_screen.dart';
 import 'screens/education_screen.dart';
 import 'screens/settings_storage_screen.dart';
 import 'theme/hunting_theme.dart';
+import 'widgets/access_gate.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,6 +33,8 @@ void main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
     await StorageManager.initialize(storageType: StorageType.firebase);
+    // Домени й тривалість пробного періоду для екрана входу (не блокує).
+    AccessService.loadConfig();
   } catch (e) {
     debugPrint('Firebase init failed: $e');
     await StorageManager.initialize(storageType: StorageType.local);
@@ -75,7 +79,7 @@ class HuntingSignalsApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const MainNavigation(),
+      home: const AccessGate(child: MainNavigation()),
       routes: {
         '/home': (context) => const MainNavigation(),
         '/admin-login': (context) => const AdminLoginScreen(),
@@ -94,7 +98,7 @@ class HuntingSignalsApp extends StatelessWidget {
       title: 'Мисливські Сигнали',
       debugShowCheckedModeBanner: false,
       theme: HuntingTheme.theme,
-      home: const MainNavigation(),
+      home: const AccessGate(child: MainNavigation()),
       routes: {
         '/home': (context) => const MainNavigation(),
         '/admin-login': (context) => const AdminLoginScreen(),

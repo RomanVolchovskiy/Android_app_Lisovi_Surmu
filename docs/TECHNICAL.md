@@ -60,11 +60,17 @@ lib/
 │   ├── video_player_screen.dart     # Програвач відео (YouTube + Google Drive)
 │   ├── drive_file_viewer_screen.dart # WebView для документів/презентацій
 │   ├── add_signal_screen.dart       # Форма додавання сигналу
+│   ├── auth_screen.dart             # Вхід / реєстрація користувача (пошта + пароль)
+│   ├── verify_email_screen.dart     # Очікування підтвердження пошти
+│   ├── access_expired_screen.dart   # Пробний період завершився — введення коду
+│   ├── account_screen.dart          # Акаунт: стан доступу, код, вихід
+│   ├── admin_access_screen.dart     # Адмін: коди доступу й налаштування
 │   ├── admin_login_screen.dart      # Вхід адміністратора
 │   ├── admin_panel_screen.dart      # Панель управління
 │   ├── admin_education_screen.dart  # Управління навчальним контентом
 │   └── settings_storage_screen.dart # Налаштування зберігання
 ├── services/
+│   ├── access_service.dart          # Вхід (Firebase Auth), пробний період, коди доступу
 │   ├── admin_service.dart           # Автентифікація адміна, допоміжні методи
 │   ├── audio_service.dart           # Відтворення аудіо (audioplayers)
 │   ├── firebase_service.dart        # CRUD для Firestore (signals, materials)
@@ -118,6 +124,7 @@ assets/
 | `firebase_core ^3.0.0` | Ініціалізація Firebase |
 | `cloud_firestore ^5.0.0` | База даних Firestore |
 | `firebase_storage ^12.0.0` | Хмарне сховище файлів |
+| `firebase_auth ^5.7.0` | Вхід за поштою; доступ до додатку — див. `docs/ACCESS.md` |
 | `shared_preferences ^2.5.3` | Локальне зберігання налаштувань |
 | `hive ^2.2.3` | Локальна NoSQL база даних |
 | `provider ^6.1.5` | Управління станом |

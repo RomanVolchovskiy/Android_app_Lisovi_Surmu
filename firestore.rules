@@ -1,0 +1,103 @@
+rules_version = '2';
+
+// Правила Firestore проєкту huntingsignals.
+//
+// Нові колекції системи доступу (lib/services/access_service.dart):
+//   app_access/config  — корпоративні домени, тривалість пробного періоду,
+//                        пошти адміністраторів;
+//   users/{uid}        — дата першого входу (початок пробного періоду) і
+//                        активований код;
+//   access_codes/{code}— коди доступу, які створює адміністратор.
+//
+// Решта колекцій (signals, edu_*, global_events, іспити…) лишаються
+// відкритими, як і були: адмін-панель сайту пише в них без Firebase Auth.
+//
+// Деплой:  firebase login && firebase deploy --only firestore:rules
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+    function myEmail() {
+      return request.auth.token.email.lower();
+    }
+    function configPath() {
+      return /databases/$(database)/documents/app_access/config;
+    }
+    function isAdmin() {
+      return signedIn()
+        && exists(configPath())
+        && myEmail() in get(configPath()).data.adminEmails;
+    }
+
+    // ── Налаштування доступу ────────────────────────────────────────────
+    // Читають усі (потрібно до входу — для екрана входу). Створити документ
+    // може лише той, хто вписує себе в adminEmails (початкове налаштування),
+    // змінювати далі — тільки адміністратор.
+    match /app_access/config {
+      allow read: if true;
+      allow create: if signedIn() && myEmail() in request.resource.data.adminEmails;
+      allow update, delete: if isAdmin();
+    }
+
+    // ── Користувачі ──────────────────────────────────────────────────────
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+
+      // Перший вхід: createdAt — лише серверний час, тип доступу — пробний.
+      allow create: if isOwner(uid)
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.accessType == 'trial';
+
+      // createdAt змінювати не можна (це початок пробного періоду).
+      // Тип доступу міняється тільки на 'code' і тільки в тій самій
+      // транзакції, де користувача дописано в usedBy коду (getAfter).
+      allow update: if isOwner(uid)
+        && request.resource.data.createdAt == resource.data.createdAt
+        && (
+          (
+            request.resource.data.accessType == resource.data.accessType
+            && request.resource.data.get('accessUntil', null) == resource.data.get('accessUntil', null)
+            && request.resource.data.get('codeId', null) == resource.data.get('codeId', null)
+          )
+          || (
+            request.resource.data.accessType == 'code'
+            && request.resource.data.codeId is string
+            && uid in getAfter(/databases/$(database)/documents/access_codes/$(request.resource.data.codeId)).data.usedBy
+          )
+        );
+
+      allow delete: if isAdmin();
+    }
+
+    // ── Коди доступу ─────────────────────────────────────────────────────
+    match /access_codes/{code} {
+      allow read: if signedIn();
+      allow create, delete: if isAdmin();
+
+      // Звичайний користувач може лише «використати» код: +1 до usedCount,
+      // свій uid у usedBy — і тільки поки код активний, не прострочений і
+      // має вільні активації. Усе інше — адміністратор.
+      allow update: if isAdmin()
+        || (
+          signedIn()
+          && resource.data.active == true
+          && (resource.data.get('expiresAt', null) == null || resource.data.expiresAt > request.time)
+          && (resource.data.get('maxUses', 0) == 0 || resource.data.usedCount < resource.data.maxUses)
+          && !(request.auth.uid in resource.data.usedBy)
+          && request.resource.data.usedCount == resource.data.usedCount + 1
+          && request.resource.data.usedBy == resource.data.usedBy.concat([request.auth.uid])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['usedCount', 'usedBy', 'usedByEmails'])
+        );
+    }
+
+    // ── Решта колекцій — як раніше, без обмежень ────────────────────────
+    match /{collection}/{document=**} {
+      allow read, write: if !(collection in ['users', 'access_codes', 'app_access']);
+    }
+  }
+}

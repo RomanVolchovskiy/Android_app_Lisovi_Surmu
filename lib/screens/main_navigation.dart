@@ -5,6 +5,9 @@ import 'package:hunting_signals/screens/events_screen.dart';
 import 'package:hunting_signals/screens/education_screen.dart';
 import 'package:hunting_signals/screens/favorites_screen.dart';
 import 'package:hunting_signals/theme/hunting_theme.dart';
+import 'package:hunting_signals/models/access_models.dart';
+import 'package:hunting_signals/screens/account_screen.dart';
+import 'package:hunting_signals/services/access_service.dart';
 import 'package:hunting_signals/services/admin_service.dart';
 import 'package:hunting_signals/utils/platform_utils.dart';
 
@@ -53,6 +56,42 @@ class _MainNavigationState extends State<MainNavigation> {
     return _buildAndroidLayout();
   }
 
+  /// Смужка «пробний період: N днів» / «код діє до …» — лише коли доступ
+  /// обмежений у часі, щоб користувач не втратив його несподівано.
+  Widget _accessBanner(BuildContext context) {
+    return ValueListenableBuilder<AccessStatus?>(
+      valueListenable: AccessService.status,
+      builder: (context, status, _) {
+        if (status == null || status.until == null || !status.allowed) return const SizedBox.shrink();
+        final trial = status.kind == AccessKind.trial;
+        if (!trial && status.daysLeft > 7) return const SizedBox.shrink();
+        final text = trial
+            ? 'Пробний період: залишилось ${status.daysLeft} дн.'
+            : 'Доступ за кодом закінчується через ${status.daysLeft} дн.';
+        final color = status.daysLeft <= 3 ? Colors.red[700]! : Colors.orange[800]!;
+        return Material(
+          color: color.withValues(alpha: 0.12),
+          child: InkWell(
+            onTap: () => Navigator.of(context, rootNavigator: true).push(
+              MaterialPageRoute(builder: (_) => const AccountScreen()),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: Row(
+                children: [
+                  Icon(Icons.timer_outlined, size: 18, color: color),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(text, style: TextStyle(fontSize: 12.5, color: color, fontWeight: FontWeight.w600))),
+                  Text('Ввести код', style: TextStyle(fontSize: 12.5, color: color, decoration: TextDecoration.underline)),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildIOSLayout() {
     return CupertinoTabScaffold(
       tabBar: CupertinoTabBar(
@@ -95,13 +134,28 @@ class _MainNavigationState extends State<MainNavigation> {
                 ),
                 backgroundColor: HuntingTheme.primaryColor,
                 brightness: Brightness.dark,
-                trailing: CupertinoButton(
-                  padding: EdgeInsets.zero,
-                  onPressed: () => AdminService.showAdminLoginDialog(context),
-                  child: const Icon(
-                    CupertinoIcons.person_badge_plus,
-                    color: CupertinoColors.white,
-                  ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CupertinoButton(
+                      padding: EdgeInsets.zero,
+                      onPressed: () => Navigator.of(context, rootNavigator: true).push(
+                        CupertinoPageRoute(builder: (_) => const AccountScreen()),
+                      ),
+                      child: const Icon(
+                        CupertinoIcons.person_crop_circle,
+                        color: CupertinoColors.white,
+                      ),
+                    ),
+                    CupertinoButton(
+                      padding: EdgeInsets.zero,
+                      onPressed: () => AdminService.showAdminLoginDialog(context),
+                      child: const Icon(
+                        CupertinoIcons.person_badge_plus,
+                        color: CupertinoColors.white,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               child: Container(
@@ -116,7 +170,12 @@ class _MainNavigationState extends State<MainNavigation> {
                   ),
                 ),
                 child: SafeArea(
-                  child: _screens[index],
+                  child: Column(
+                    children: [
+                      _accessBanner(context),
+                      Expanded(child: _screens[index]),
+                    ],
+                  ),
                 ),
               ),
             );
@@ -140,6 +199,14 @@ class _MainNavigationState extends State<MainNavigation> {
         elevation: 4,
         shadowColor: HuntingTheme.primaryDark.withValues(alpha: 0.3),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.account_circle_outlined),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AccountScreen()),
+            ),
+            tooltip: 'Мій акаунт',
+          ),
           IconButton(
             icon: const Icon(Icons.admin_panel_settings),
             onPressed: () async {
@@ -207,6 +274,7 @@ class _MainNavigationState extends State<MainNavigation> {
                 ],
               ),
             ),
+          _accessBanner(context),
           // ── Вміст екрану ───────────────────────────────────────────────
           Expanded(
             child: Container(
