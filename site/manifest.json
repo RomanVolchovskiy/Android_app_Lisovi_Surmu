@@ -8,25 +8,25 @@
   "description": "Лісові сурми — традиційні мисливські сигнали: аудіо, відео, ноти, навчання, події",
   "icons": [
     {
-      "src": "assets/Icon-192.png",
+      "src": "assets/Icon-192-v2.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "assets/Icon-512.png",
+      "src": "assets/Icon-512-v2.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "assets/Icon-maskable-192.png",
+      "src": "assets/Icon-maskable-192-v2.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "assets/Icon-maskable-512.png",
+      "src": "assets/Icon-maskable-512-v2.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
