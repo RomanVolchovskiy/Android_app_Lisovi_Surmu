@@ -9,6 +9,7 @@ import { squares } from './notation.js';
 import { createEventDialog } from './events.js';
 import { db, collection, doc, onSnapshot, deleteDoc } from '../firebase.js';
 import { openAdminAccess } from './admin-access.js';
+import { openAdminEducation } from './admin-education.js';
 
 const ADMIN_PASSWORD = '1488';
 const SESSION_KEY = 'admin_session';
@@ -40,7 +41,7 @@ function openAdminPanel() {
       h('div', { class: 'body' }, h('div', { class: 'body-inner' },
         tile('add_circle_outline', 'Додати сигнал', 'Новий сигнал з аудіо, відео, нотами', () => openSignalForm(null)),
         tile('edit', 'Редагувати сигнали', 'Змінити, впорядкувати або видалити', () => openEditSignals()),
-        tile('school', 'Управління навчанням', 'Теми, матеріали, флеш-картки, тести', () => toast('Розділ буде доступний у наступній фазі')),
+        tile('school', 'Управління навчанням', 'Теми, матеріали, флеш-картки, тести', () => openAdminEducation()),
         tile('event_note', 'Управління подіями', 'Глобальні мисливські події', () => openAdminEvents()),
         tile('quiz', 'Управління іспитами', 'Сесії іспитів та результати', () => toast('Розділ буде доступний у наступній фазі')),
         tile('vpn_key', 'Коди доступу', 'Пробний період, корпоративні домени, коди', () => openAdminAccess()))));

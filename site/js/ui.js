@@ -9,7 +9,9 @@ export function h(tag, attrs = {}, ...children) {
     else if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
     else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2).toLowerCase(), v);
     else if (k === 'html') el.innerHTML = v;
-    else if (k in el && typeof v !== 'string') el[k] = v;
+    // value — завжди властивість: атрибут value у <textarea> браузер ігнорує,
+    // і поле редагування відкривалося б порожнім.
+    else if (k === 'value' || (k in el && typeof v !== 'string')) el[k] = v;
     else el.setAttribute(k, v === true ? '' : v);
   }
   for (const c of children.flat(Infinity)) {

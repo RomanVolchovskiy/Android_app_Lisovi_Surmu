@@ -10,6 +10,8 @@ import { openMagicHorn } from './trainer-horn.js';
 import { openMetronome } from './trainer-metronome.js';
 
 const cache = {};
+/** Скидає кеш — після змін в адмін-панелі навчання розділ підтягне свіжі дані. */
+export function invalidateEducationCache() { Object.keys(cache).forEach((k) => delete cache[k]); }
 async function col(name, filterField, filterValue) {
   const key = filterField ? `${name}:${filterValue}` : name;
   if (cache[key]) return cache[key];
