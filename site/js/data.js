@@ -76,7 +76,9 @@ export async function waitForSignals() {
 export async function saveSignal(signal) {
   const data = { ...signal };
   Object.keys(data).forEach((k) => { if (data[k] === undefined) data[k] = null; });
-  await setDoc(doc(db, 'signals', signal.id), data);
+  // merge: форма знає не всі поля документа (напр. driveBackup — старі
+  // посилання для відкату міграції), і повний setDoc стирав би їх.
+  await setDoc(doc(db, 'signals', signal.id), data, { merge: true });
 }
 
 export async function deleteSignal(id) {
