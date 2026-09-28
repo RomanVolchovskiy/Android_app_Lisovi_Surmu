@@ -96,6 +96,10 @@ const CONTENT_TYPES = {
   png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif',
   mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime',
 };
+// Шлях містить мітку часу, тож вміст за ним ніколи не змінюється — можна
+// кешувати назавжди. Без цього Storage віддає `private, max-age=0`, і аудіо
+// завантажується заново при кожному відтворенні.
+const MEDIA_CACHE_CONTROL = 'public, max-age=31536000, immutable';
 export const AUDIO_EXT = ['mp3', 'm4a', 'aac', 'ogg', 'wav'];
 export const IMAGE_EXT = ['png', 'jpg', 'jpeg', 'webp', 'gif'];
 export const VIDEO_EXT = ['mp4', 'webm', 'mov'];
@@ -105,7 +109,10 @@ export async function uploadMedia(folder, file) {
   const safe = file.name.trim().replace(/[^\w.\-]+/gu, '_') || 'file';
   const path = `signals/${folder}/${Date.now()}_${safe}`;
   const ref = storageRef(storage, path);
-  await uploadBytes(ref, file, { contentType: CONTENT_TYPES[ext] || file.type || 'application/octet-stream' });
+  await uploadBytes(ref, file, {
+    contentType: CONTENT_TYPES[ext] || file.type || 'application/octet-stream',
+    cacheControl: MEDIA_CACHE_CONTROL,
+  });
   return getDownloadURL(ref);
 }
 

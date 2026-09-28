@@ -52,8 +52,16 @@ class MediaStorageService {
         'signals/$folder/${DateTime.now().millisecondsSinceEpoch}_${_safeName(fileName)}';
     final ref = _storage.ref(path);
     // Без contentType Storage віддає application/octet-stream, і <audio>
-    // у браузері відмовляється такий файл грати.
-    await ref.putData(bytes, SettableMetadata(contentType: _contentType(fileName)));
+    // у браузері відмовляється такий файл грати. Шлях містить мітку часу,
+    // тож вміст за ним не змінюється — кешуємо назавжди (інакше Storage
+    // віддає `private, max-age=0` і файл завантажується щоразу заново).
+    await ref.putData(
+      bytes,
+      SettableMetadata(
+        contentType: _contentType(fileName),
+        cacheControl: 'public, max-age=31536000, immutable',
+      ),
+    );
     final url = await ref.getDownloadURL();
     debugPrint('MediaStorage: uploaded $path (${bytes.length} bytes)');
     return url;
