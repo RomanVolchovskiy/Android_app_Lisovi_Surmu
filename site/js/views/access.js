@@ -10,11 +10,18 @@ const errText = (e) => (e instanceof AccessError ? e.message : `Помилка: 
 
 // Готовий APK лежить у site/downloads/ (роздається Vercel, у git не входить).
 // Нова версія: покласти файл і оновити ці два рядки.
-const APK_FILE = 'downloads/LisoviSurmy_v1.1.0_arm64.apk';
-const APK_LABEL = 'APK, 31 МБ · версія 1.1.0';
+const APK_FILE = 'downloads/LisoviSurmy_v1.1.1_arm64.apk';
+const APK_LABEL = 'APK, 32 МБ · версія 1.1.1';
 
-const apkLink = (cls) => h('a', { class: cls, href: APK_FILE, download: '' },
-  icon('android'), h('span', {}, 'Завантажити додаток для Android'), h('small', {}, APK_LABEL));
+// 1.1.1 підписано релізним ключем, а 1.0/1.1.0 — налагоджувальним, тож поверх
+// старої версії Android нову не встановить.
+const APK_NOTE = 'Якщо на телефоні вже є версія 1.0 або 1.1.0 — спершу видаліть її: '
+  + 'нова версія має інший підпис і поверх старої не встановиться. Обране й плейлисти на телефоні буде втрачено.';
+
+const apkLink = (cls) => h('div', { class: `${cls}-wrap` },
+  h('a', { class: cls, href: APK_FILE, download: '' },
+    icon('android'), h('span', {}, 'Завантажити додаток для Android'), h('small', {}, APK_LABEL)),
+  h('div', { class: 'apk-note' }, icon('info'), h('span', {}, APK_NOTE)));
 
 function authFrame(...children) {
   return h('div', { class: 'auth-page' },
