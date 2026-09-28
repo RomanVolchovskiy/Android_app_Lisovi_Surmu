@@ -147,8 +147,10 @@ def storage_upload(path, data, content_type, dry_run):
         return f'https://firebasestorage.googleapis.com/v0/b/{BUCKET}/o/{encoded}?alt=media&token=DRY-RUN'
 
     boundary = 'migrate-' + str(abs(hash(path)))
+    # Шлях сталий (signals/<поле>/<id>.<розш.>), і повторний запуск перезапише
+    # файл за тією ж адресою — тому кеш лише на добу, без immutable.
     metadata = json.dumps({'name': path, 'contentType': content_type,
-                           'cacheControl': 'public, max-age=31536000, immutable'}).encode()
+                           'cacheControl': 'public, max-age=86400'}).encode()
     crlf = '\r\n'
     body = (
         f'--{boundary}{crlf}Content-Type: application/json; charset=utf-8{crlf}{crlf}'.encode()
