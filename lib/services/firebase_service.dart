@@ -40,7 +40,9 @@ class FirebaseService {
     try {
       final id = signal['id'] as String?;
       if (id == null || id.isEmpty) return false;
-      await _db.collection(_signalsCollection).doc(id).set(signal);
+      // merge: не стирати поля, яких немає в моделі (напр. driveBackup —
+      // посилання для відкату міграції медіа).
+      await _db.collection(_signalsCollection).doc(id).set(signal, SetOptions(merge: true));
       return true;
     } catch (e) {
       debugPrint('Firebase saveSignal error: $e');
@@ -166,7 +168,7 @@ class FirebaseService {
       for (final signal in signals) {
         final id = signal['id'] as String?;
         if (id != null && id.isNotEmpty) {
-          batch.set(_db.collection(_signalsCollection).doc(id), signal);
+          batch.set(_db.collection(_signalsCollection).doc(id), signal, SetOptions(merge: true));
         }
       }
       await batch.commit();
