@@ -4,6 +4,7 @@ import { h, icon, clear } from '../ui.js';
 import { audio } from '../audio.js';
 import { openAdmin } from './admin.js';
 import { openAccount, accessBanner } from './access.js';
+import { isAdminUser, loadConfig, onAuthChange } from '../access.js';
 import { getSignals } from '../data.js';
 
 const TABS = [
@@ -40,12 +41,19 @@ export function createShell({ onTab }) {
     }
   });
 
+  // Кнопку адмін-панелі бачать лише адміністратори.
+  const adminBtn = h('button', { class: 'iconbtn', title: 'Адміністратор', onClick: () => openAdmin() }, icon('admin_panel_settings'));
+  const syncAdmin = () => { adminBtn.hidden = !isAdminUser(); };
+  syncAdmin();
+  onAuthChange(syncAdmin);
+  loadConfig().then(syncAdmin, syncAdmin);
+
   const root = h('div', { class: 'shell' },
     h('div', { class: 'appbar' },
       title,
       h('div', { class: 'actions' },
         h('button', { class: 'iconbtn', title: 'Мій акаунт', onClick: () => openAccount() }, icon('account_circle')),
-        h('button', { class: 'iconbtn', title: 'Адміністратор', onClick: () => openAdmin() }, icon('admin_panel_settings')))),
+        adminBtn)),
     accessBanner(),
     mini,
     content,

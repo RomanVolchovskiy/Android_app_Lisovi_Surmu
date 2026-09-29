@@ -9,8 +9,11 @@ rules_version = '2';
 //                        активований код;
 //   access_codes/{code}— коди доступу, які створює адміністратор.
 //
-// Решта колекцій (signals, edu_*, global_events, іспити…) лишаються
-// відкритими, як і були: адмін-панель сайту пише в них без Firebase Auth.
+// Контент (signals, edu_*, global_events, іспити…) читають усі, а змінює
+// лише адміністратор — залогінений з підтвердженою поштою зі списку
+// app_access/config.adminEmails або головний адміністратор (ROOT_ADMIN у
+// site/js/access.js і AccessConfig.rootAdmin у додатку). Користувачі пишуть
+// тільки в shared_events (поширені особисті події) та exam_submissions.
 //
 // Деплой:  firebase login && firebase deploy --only firestore:rules
 service cloud.firestore {
@@ -28,20 +31,33 @@ service cloud.firestore {
     function configPath() {
       return /databases/$(database)/documents/app_access/config;
     }
+    // Головний адміністратор має права й до створення app_access/config,
+    // тож налаштування не може лишитися без жодного адміністратора.
+    function isRootAdmin() {
+      return signedIn() && myEmail() == 'volcovskij@forestcollege.ukr.education';
+    }
     function isAdmin() {
-      return signedIn()
+      return isRootAdmin() || (
+        signedIn()
         && exists(configPath())
-        && myEmail() in get(configPath()).data.adminEmails;
+        && myEmail() in get(configPath()).data.adminEmails
+      );
+    }
+    // Колекції, які змінює лише адміністратор (адмін-панелі сайту й додатку).
+    function adminOnly(collection) {
+      return collection in [
+        'signals', 'materials', 'global_events',
+        'edu_topics', 'edu_learning_materials', 'edu_flashcards', 'edu_test_questions',
+        'practical_topics', 'practical_materials', 'study_plan', 'exam_sessions',
+      ];
     }
 
     // ── Налаштування доступу ────────────────────────────────────────────
-    // Читають усі (потрібно до входу — для екрана входу). Створити документ
-    // може лише той, хто вписує себе в adminEmails (початкове налаштування),
-    // змінювати далі — тільки адміністратор.
+    // Читають усі (потрібно до входу — для екрана входу). Створює й змінює
+    // лише адміністратор (спершу — головний).
     match /app_access/config {
       allow read: if true;
-      allow create: if signedIn() && myEmail() in request.resource.data.adminEmails;
-      allow update, delete: if isAdmin();
+      allow create, update, delete: if isAdmin();
     }
 
     // ── Користувачі ──────────────────────────────────────────────────────
@@ -95,9 +111,22 @@ service cloud.firestore {
         );
     }
 
-    // ── Решта колекцій — як раніше, без обмежень ────────────────────────
+    // ── Іспити: роботу здає студент, оцінює адміністратор ──────────────
+    match /exam_submissions/{id} {
+      allow read, create: if signedIn();
+      allow update, delete: if isAdmin();
+    }
+
+    // ── Решта колекцій ──────────────────────────────────────────────────
+    // Контент адмін-панелі (adminOnly) змінює лише адміністратор; інші
+    // колекції (shared_events тощо) — будь-хто залогінений. Колекції доступу
+    // й іспитові роботи тут виключено: для них діють правила вище (правила
+    // Firestore об'єднуються через «або», тож інакше вони б їх послабили).
     match /{collection}/{document=**} {
-      allow read, write: if !(collection in ['users', 'access_codes', 'app_access']);
+      allow read: if !(collection in ['users', 'access_codes', 'app_access', 'exam_submissions']);
+      allow write: if adminOnly(collection)
+                   ? isAdmin()
+                   : signedIn() && !(collection in ['users', 'access_codes', 'app_access', 'exam_submissions']);
     }
   }
 }

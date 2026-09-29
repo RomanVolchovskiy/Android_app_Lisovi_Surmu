@@ -9,10 +9,6 @@ import 'package:hunting_signals/services/media_cache_service.dart';
 import 'package:hunting_signals/services/storage_manager.dart';
 import 'package:hunting_signals/utils/platform_utils.dart';
 import 'screens/main_navigation.dart';
-import 'screens/admin_login_screen.dart';
-import 'screens/admin_panel_screen.dart';
-import 'screens/add_signal_screen.dart';
-import 'screens/add_education_screen.dart';
 import 'screens/categories_screen.dart';
 import 'screens/education_screen.dart';
 import 'screens/settings_storage_screen.dart';
@@ -82,10 +78,6 @@ class HuntingSignalsApp extends StatelessWidget {
       home: const AccessGate(child: MainNavigation()),
       routes: {
         '/home': (context) => const MainNavigation(),
-        '/admin-login': (context) => const AdminLoginScreen(),
-        '/admin-panel': (context) => const AdminPanelScreen(),
-        '/add-signal': (context) => const AddSignalScreen(),
-        '/add-education': (context) => const AddEducationScreen(),
         '/categories': (context) => const CategoriesScreen(),
         '/education': (context) => const EducationScreen(),
         '/settings': (context) => const SettingsStorageScreen(),
@@ -101,9 +93,6 @@ class HuntingSignalsApp extends StatelessWidget {
       home: const AccessGate(child: MainNavigation()),
       routes: {
         '/home': (context) => const MainNavigation(),
-        '/admin-login': (context) => const AdminLoginScreen(),
-        '/admin-panel': (context) => const AdminPanelScreen(),
-        '/add-signal': (context) => const AddSignalScreen(),
         '/categories': (context) => const CategoriesScreen(),
         '/education': (context) => const EducationScreen(),
         '/settings': (context) => const SettingsStorageScreen(),

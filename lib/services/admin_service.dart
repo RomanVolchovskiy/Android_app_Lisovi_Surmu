@@ -1,39 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:hunting_signals/screens/admin_panel_screen.dart';
 import 'package:hunting_signals/services/hunting_data_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:hunting_signals/services/access_service.dart';
 import '../models/hunting_models.dart';
 
 class AdminService {
-  static const String adminPassword = '1488';
-  static const String _prefKey = 'admin_password_required';
-  static bool _isAdminAuthenticated = false;
-  static bool _passwordRequired = true;
-
-  static bool get isAdminAuthenticated => _isAdminAuthenticated;
-  static bool get passwordRequired => _passwordRequired;
-
-  /// Завантажує налаштування пароля зі сховища
-  static Future<void> loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    _passwordRequired = prefs.getBool(_prefKey) ?? true;
-  }
-
-  /// Вмикає або вимикає захист паролем
-  static Future<void> setPasswordRequired(bool value) async {
-    _passwordRequired = value;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_prefKey, value);
-  }
-
-  static Future<bool> authenticate(String password) async {
-    _isAdminAuthenticated = password == adminPassword;
-    return _isAdminAuthenticated;
-  }
-
-  static void logout() {
-    _isAdminAuthenticated = false;
-  }
+  /// Чи може поточний користувач відкрити адмін-панель — див.
+  /// [AccessService.isAdminUser]. Пароля більше немає: доступ визначає акаунт
+  /// Firebase Auth, і ті самі правила Firestore/Storage перевіряють запис.
+  static bool get isAdmin => AccessService.isAdminUser;
 
   /// Add new hunting signal to local storage
   static Future<bool> addHuntingSignal(HuntingSignal signal) async {
@@ -57,78 +32,18 @@ class AdminService {
     }
   }
 
-  static Future<void> showAdminLoginDialog(BuildContext context) async {
-    await loadSettings();
-
-    // Якщо пароль вимкнено — одразу відкриваємо панель
-    if (!_passwordRequired) {
-      _isAdminAuthenticated = true;
-      if (context.mounted) {
-        await Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const AdminPanelScreen()),
-        );
-      }
+  /// Відкриває адмін-панель, якщо поточний користувач — адміністратор.
+  static Future<void> openAdminPanel(BuildContext context) async {
+    // Список адміністраторів міг змінитися — беремо свіжий із сервера.
+    await AccessService.loadConfig(fromServer: true);
+    if (!context.mounted) return;
+    if (!AccessService.isAdminUser) {
+      showErrorMessage(context, 'Адмін-панель доступна лише адміністраторам');
       return;
     }
-
-    final TextEditingController passwordController = TextEditingController();
-
-    final authenticated = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: const Text('Вхід адміністратора'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Введіть пароль адміністратора:'),
-              const SizedBox(height: 16),
-              TextField(
-                controller: passwordController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Пароль',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Скасувати'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final password = passwordController.text;
-                if (await authenticate(password)) {
-                  if (dialogContext.mounted) {
-                    Navigator.of(dialogContext).pop(true);
-                  }
-                } else {
-                  if (dialogContext.mounted) {
-                    ScaffoldMessenger.of(dialogContext).showSnackBar(
-                      const SnackBar(
-                        content: Text('Неправильний пароль!'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-                }
-              },
-              child: const Text('Увійти'),
-            ),
-          ],
-        );
-      },
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const AdminPanelScreen()),
     );
-
-    if (authenticated == true && context.mounted) {
-      await Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const AdminPanelScreen()),
-      );
-    }
   }
 
   /// Show success message

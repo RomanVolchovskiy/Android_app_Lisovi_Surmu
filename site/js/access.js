@@ -51,7 +51,17 @@ export const emailDomain = (email) => {
   return at < 0 ? null : email.slice(at + 1).trim().toLowerCase();
 };
 export const isCorporate = (email) => config.corporateDomains.includes(emailDomain(email));
-export const isAdminEmail = (email) => config.adminEmails.includes((email || '').trim().toLowerCase());
+// Головний адміністратор — той самий, що зашитий у firestore.rules і
+// storage.rules: має права ще до створення app_access/config і не може
+// випадково прибрати себе зі списку.
+export const ROOT_ADMIN = 'volcovskij@forestcollege.ukr.education';
+export const isAdminEmail = (email) => {
+  const e = (email || '').trim().toLowerCase();
+  return e === ROOT_ADMIN || config.adminEmails.includes(e);
+};
+/** Адмін-панель — лише для залогіненого користувача з підтвердженою
+ *  адмінською поштою; правила Firestore/Storage перевіряють те саме. */
+export const isAdminUser = (u = auth.currentUser) => !!u && u.emailVerified && isAdminEmail(u.email);
 
 // ── Автентифікація ───────────────────────────────────────────────────────────
 

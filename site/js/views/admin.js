@@ -1,6 +1,6 @@
 // Адміністрування: вхід за паролем (AdminService), панель, додавання /
 // редагування / впорядкування сигналів із завантаженням файлів у Storage.
-import { h, icon, toast, pushScreen, appBar, confirmDialog, promptDialog, pickFiles, clear, openDialog } from '../ui.js';
+import { h, icon, toast, pushScreen, appBar, confirmDialog, pickFiles, clear, openDialog } from '../ui.js';
 import {
   CATEGORIES, getSignals, subscribeSignals, saveSignal, deleteSignal, reorderSignals,
   uploadMedia, AUDIO_EXT, IMAGE_EXT, VIDEO_EXT, mediaUrl,
@@ -10,20 +10,15 @@ import { createEventDialog } from './events.js';
 import { db, collection, doc, onSnapshot, deleteDoc } from '../firebase.js';
 import { openAdminAccess } from './admin-access.js';
 import { openAdminEducation } from './admin-education.js';
+import { isAdminUser, loadConfig } from '../access.js';
 
-const ADMIN_PASSWORD = '1488';
-const SESSION_KEY = 'admin_session';
-let authenticated = sessionStorage.getItem(SESSION_KEY) === '1';
-
+// Доступ — за акаунтом Firebase Auth (isAdminUser), а не за паролем:
+// ті самі правила перевіряють запис у Firestore і Storage.
 export async function openAdmin() {
-  if (!authenticated) {
-    const pwd = await promptDialog('Вхід адміністратора', {
-      label: 'Пароль', password: true, okLabel: 'Увійти',
-      validate: (v) => (v === ADMIN_PASSWORD ? null : 'Невірний пароль'),
-    });
-    if (pwd == null) return;
-    authenticated = true;
-    sessionStorage.setItem(SESSION_KEY, '1');
+  await loadConfig(true);
+  if (!isAdminUser()) {
+    toast('Адмін-панель доступна лише адміністраторам', 'err');
+    return;
   }
   openAdminPanel();
 }
@@ -35,9 +30,7 @@ function openAdminPanel() {
       h('div', { class: 'grow' }, h('div', { class: 't' }, title), h('div', { class: 's' }, subtitle)),
       icon('chevron_right', ''));
     return h('div', { class: 'page', style: { background: 'var(--bg)' } },
-      appBar('Адміністративна панель', { back: pop, actions: [
-        h('button', { class: 'iconbtn', title: 'Вийти з адмін панелі', onClick: () => { authenticated = false; sessionStorage.removeItem(SESSION_KEY); pop(); } }, icon('logout')),
-      ] }),
+      appBar('Адміністративна панель', { back: pop }),
       h('div', { class: 'body' }, h('div', { class: 'body-inner' },
         tile('add_circle_outline', 'Додати сигнал', 'Новий сигнал з аудіо, відео, нотами', () => openSignalForm(null)),
         tile('edit', 'Редагувати сигнали', 'Змінити, впорядкувати або видалити', () => openEditSignals()),

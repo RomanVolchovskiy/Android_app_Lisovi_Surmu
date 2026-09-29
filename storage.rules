@@ -2,28 +2,41 @@ rules_version = '2';
 
 // Правила Firebase Storage для huntingsignals.firebasestorage.app.
 //
-// Це цільові правила для теки signals/ (медіа сигналів, які заливає
-// адмін-панель і скрипт scripts/migrate_media_to_storage.py). Перед деплоєм
-// звірте з чинними правилами в консолі Firebase — інші теки (exam_files/)
-// мають лишитися такими, як є.
-//
 // Деплой:  firebase login && firebase deploy --only storage
+// Правила читають app_access/config з Firestore (перехресні правила) — при
+// першому деплої Firebase CLI просить дозволу видати Storage доступ до
+// Firestore; без нього isAdmin() спрацьовує лише для головного адміністратора.
 service firebase.storage {
   match /b/{bucket}/o {
-    // Медіа сигналів — публічний контент застосунку: читає будь-хто.
-    // Firebase Auth у застосунку немає (адмін підтверджується локальним
-    // паролем), тому запис не прив'язати до користувача — обмежуємо тип
-    // і розмір файлу, щоб тека не стала анонімним файлообмінником.
-    match /signals/{folder}/{file} {
-      allow read: if true;
-      allow write: if request.resource != null
-                   && request.resource.size < 100 * 1024 * 1024
-                   && request.resource.contentType.matches('(audio|image|video)/.*');
+
+    function signedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+    // Той самий адміністратор, що й у firestore.rules: головний (має права
+    // ще до створення app_access/config) або зі списку adminEmails.
+    function isAdmin() {
+      return signedIn() && (
+        request.auth.token.email.lower() == 'volcovskij@forestcollege.ukr.education'
+        || request.auth.token.email.lower() in
+             firestore.get(/databases/(default)/documents/app_access/config).data.adminEmails
+      );
     }
 
-    // Файли іспитів — завантажує застосунок від імені студента (без Auth).
+    // Медіа сигналів і навчальних матеріалів — публічний контент застосунку:
+    // читає будь-хто, завантажує й видаляє лише адміністратор (адмін-панелі
+    // сайту й додатку). Тип і розмір обмежено, щоб тека не стала
+    // файлообмінником навіть з адмінського акаунта.
+    match /signals/{folder}/{file} {
+      allow read: if true;
+      allow create, update: if isAdmin()
+                            && request.resource.size < 100 * 1024 * 1024
+                            && request.resource.contentType.matches('(audio|image|video)/.*');
+      allow delete: if isAdmin();
+    }
+
+    // Файли іспитів — завантажує студент із застосунку (після входу).
     match /exam_files/{allPaths=**} {
-      allow read, write: if true;
+      allow read, write: if signedIn();
     }
   }
 }

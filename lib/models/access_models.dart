@@ -115,7 +115,16 @@ class AccessConfig {
     return domain != null && corporateDomains.contains(domain);
   }
 
-  bool isAdmin(String? email) => email != null && adminEmails.contains(email.trim().toLowerCase());
+  /// Головний адміністратор — той самий, що зашитий у firestore.rules і
+  /// storage.rules: має права ще до створення `app_access/config` і не може
+  /// випадково прибрати себе зі списку.
+  static const rootAdmin = 'volcovskij@forestcollege.ukr.education';
+
+  bool isAdmin(String? email) {
+    if (email == null) return false;
+    final e = email.trim().toLowerCase();
+    return e == rootAdmin || adminEmails.contains(e);
+  }
 
   static String? emailDomain(String? email) {
     if (email == null) return null;

@@ -43,6 +43,13 @@ class AccessService {
   // ── Автентифікація ─────────────────────────────────────────────────────────
 
   static User? get currentUser => _auth.currentUser;
+
+  /// Адмін-панель — лише для залогіненого користувача з підтвердженою
+  /// адмінською поштою; правила Firestore/Storage перевіряють те саме.
+  static bool get isAdminUser {
+    final u = _auth.currentUser;
+    return u != null && u.emailVerified && _config.isAdmin(u.email);
+  }
   static Stream<User?> get authChanges => _auth.userChanges();
 
   static Future<void> signIn(String email, String password) async {

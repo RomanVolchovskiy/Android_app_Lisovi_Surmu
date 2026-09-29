@@ -56,6 +56,16 @@ class _MainNavigationState extends State<MainNavigation> {
     return _buildAndroidLayout();
   }
 
+  /// Кнопка адмін-панелі — лише для адміністраторів. Статус доступу
+  /// оновлюється після входу й завантаження списку адміністраторів.
+  Widget _adminOnly(Widget Function() button) {
+    return ValueListenableBuilder<AccessStatus?>(
+      valueListenable: AccessService.status,
+      builder: (context, _, __) =>
+          AccessService.isAdminUser ? button() : const SizedBox.shrink(),
+    );
+  }
+
   /// Смужка «пробний період: N днів» / «код діє до …» — лише коли доступ
   /// обмежений у часі, щоб користувач не втратив його несподівано.
   Widget _accessBanner(BuildContext context) {
@@ -147,12 +157,14 @@ class _MainNavigationState extends State<MainNavigation> {
                         color: CupertinoColors.white,
                       ),
                     ),
-                    CupertinoButton(
-                      padding: EdgeInsets.zero,
-                      onPressed: () => AdminService.showAdminLoginDialog(context),
-                      child: const Icon(
-                        CupertinoIcons.person_badge_plus,
-                        color: CupertinoColors.white,
+                    _adminOnly(
+                      () => CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        onPressed: () => AdminService.openAdminPanel(context),
+                        child: const Icon(
+                          CupertinoIcons.person_badge_plus,
+                          color: CupertinoColors.white,
+                        ),
                       ),
                     ),
                   ],
@@ -207,13 +219,15 @@ class _MainNavigationState extends State<MainNavigation> {
             ),
             tooltip: 'Мій акаунт',
           ),
-          IconButton(
-            icon: const Icon(Icons.admin_panel_settings),
-            onPressed: () async {
-              await AdminService.showAdminLoginDialog(context);
-              if (mounted) setState(() => _categoriesRefreshToken++);
-            },
-            tooltip: 'Адміністратор',
+          _adminOnly(
+            () => IconButton(
+              icon: const Icon(Icons.admin_panel_settings),
+              onPressed: () async {
+                await AdminService.openAdminPanel(context);
+                if (mounted) setState(() => _categoriesRefreshToken++);
+              },
+              tooltip: 'Адміністратор',
+            ),
           ),
         ],
       ),
