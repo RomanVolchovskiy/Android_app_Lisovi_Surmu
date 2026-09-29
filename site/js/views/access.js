@@ -10,8 +10,8 @@ const errText = (e) => (e instanceof AccessError ? e.message : `Помилка: 
 
 // Готовий APK лежить у site/downloads/ (роздається Vercel, у git не входить).
 // Нова версія: покласти файл і оновити ці два рядки.
-const APK_FILE = 'downloads/LisoviSurmy_v1.1.2_arm64.apk';
-const APK_LABEL = 'APK, 32 МБ · версія 1.1.2';
+const APK_FILE = 'downloads/LisoviSurmy_v1.1.3_arm64.apk';
+const APK_LABEL = 'APK, 32 МБ · версія 1.1.3';
 
 // З 1.1.1 APK підписано релізним ключем, а 1.0/1.1.0 — налагоджувальним, тож поверх
 // старої версії Android нову не встановить.
