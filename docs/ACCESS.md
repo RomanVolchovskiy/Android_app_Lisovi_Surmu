@@ -71,7 +71,7 @@
    доступу → ⚙, за потреби додати інших адміністраторів → **Зберегти
    налаштування**. Це створює документ `app_access/config`.
 4. **Authentication → Settings → Authorized domains** — додати
-   `lisovi-surmy-site.vercel.app`.
+   `lisovi-surmy.vercel.app`.
 5. (Необов'язково) **Authentication → Templates** — українізувати текст
    листа підтвердження пошти.
 
@@ -89,14 +89,14 @@
 
 ## Сайт
 
-Сайт (`site/`, lisovi-surmy-site.vercel.app) працює за тими самими правилами
+Сайт (`site/`, lisovi-surmy.vercel.app) працює за тими самими правилами
 і з тими самими даними: `site/js/access.js` (логіка), `site/js/views/access.js`
 (вхід, підтвердження, акаунт, смужка), `site/js/views/admin-access.js`
 (коди й налаштування в адмін-панелі). Акаунт, пробний період і коди спільні
 для додатку й сайту — користувач входить однією поштою будь-де.
 
 Після деплою сайту додайте його домен у **Authentication → Settings →
-Authorized domains** (`lisovi-surmy-site.vercel.app`; `localhost` там є
+Authorized domains** (`lisovi-surmy.vercel.app`; `localhost` там є
 за замовчуванням).
 
 ## Що не покрито

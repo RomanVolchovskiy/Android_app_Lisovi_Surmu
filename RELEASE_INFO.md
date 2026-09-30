@@ -113,4 +113,4 @@ arm64/arm32-збірку, має оновлюватися такою ж, а не
 - Іконка застосунку — герб (`launcher_icons/`, `dart run flutter_launcher_icons`).
 - Підпис 1.1.0: debug-ключ цієї машини (`~/.android/debug.keystore`) — як і в 1.0.
   З 1.1.1 — релізний ключ (див. вище).
-- Веб-версія: https://lisovi-surmy-site.vercel.app (деплой із `site/`).
+- Веб-версія: https://lisovi-surmy.vercel.app (деплой із `site/`).

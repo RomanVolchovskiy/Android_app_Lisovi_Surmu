@@ -28,7 +28,7 @@ Firestore проєкту `huntingsignals`, медіа бере з Firebase Stora
 
 ## Деплой
 
-Vercel, проєкт `lisovi-surmy-site` (https://lisovi-surmy-site.vercel.app); корінь деплою — ця тека:
+Vercel, проєкт `lisovi-surmy` в акаунті sobakahav@gmail.com (команда `sobakahav-7468s-projects`), https://lisovi-surmy.vercel.app; корінь деплою — ця тека:
 
     vercel deploy --prod
 
