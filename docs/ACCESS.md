@@ -71,7 +71,7 @@
    доступу → ⚙, за потреби додати інших адміністраторів → **Зберегти
    налаштування**. Це створює документ `app_access/config`.
 4. **Authentication → Settings → Authorized domains** — додати
-   `lisovi-surmy-site.vercel.app` і `lisovi-surmy.vercel.app`.
+   `lisovi-surmy-site.vercel.app`.
 5. (Необов'язково) **Authentication → Templates** — українізувати текст
    листа підтвердження пошти.
 
