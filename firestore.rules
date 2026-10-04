@@ -113,7 +113,30 @@ service cloud.firestore {
 
     // ── Іспити: роботу здає студент, оцінює адміністратор ──────────────
     match /exam_submissions/{id} {
-      allow read, create: if signedIn();
+      // Один документ за відомим id може прочитати будь-хто залогінений
+      // (так клієнт перевіряє власну подану роботу). Повний перелік усіх
+      // робіт сесії ("list") — лише для адміністратора; студентському
+      // коду, який перевіряє «чи вже здавав» запитом з limit(1), теж
+      // дозволено, але вивантажити весь список результатів класу інакше
+      // не можна.
+      allow get: if signedIn();
+      allow list: if isAdmin() || (signedIn() && request.query.limit <= 1);
+
+      // Створити роботу може будь-хто залогінений, але сервер вимагає,
+      // щоб вона була щойно подана ("pending", без жодних оцінок
+      // адміністратора) і щоб сесія справді існувала й була активною —
+      // це не дає студенту напряму записати собі вже «перевірену» роботу
+      // з виставленими балами.
+      allow create: if signedIn()
+        && request.resource.data.status == 'pending'
+        && request.resource.data.get('adminTheoryPoints', null) == null
+        && request.resource.data.get('adminAudioPoints', null) == null
+        && request.resource.data.get('adminFilePoints', null) == null
+        && request.resource.data.sessionId is string
+        && request.resource.data.studentName is string
+        && request.resource.data.studentName.size() > 0
+        && get(/databases/$(database)/documents/exam_sessions/$(request.resource.data.sessionId)).data.status == 'active';
+
       allow update, delete: if isAdmin();
     }
 

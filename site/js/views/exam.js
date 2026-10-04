@@ -103,13 +103,17 @@ function openExamTaking(session, studentName) {
       h('div', { style: { height: '6px', borderRadius: '3px', background: 'rgba(0,0,0,.08)', overflow: 'hidden' } },
         h('div', { style: { width: `${cur / total * 100}%`, height: '100%', background: color } })));
 
-    // Варіанти відповіді: після вибору підсвічується правильна і обрана
+    // Варіанти відповіді: під час іспиту правильність НЕ показується —
+    // вибір лише підсвічує обраний варіант (без зеленого/червоного).
     const options = (opts, correct, onAnswer) => {
       let answered = false;
       const btns = opts.map((o, k) => h('button', { class: 'tile', style: { width: '100%', textAlign: 'left', cursor: 'pointer', borderLeft: '4px solid transparent' }, onClick: () => {
         if (answered) return;
         answered = true;
-        btns.forEach((b, j) => { b.style.borderLeftColor = j === correct ? '#2E7D32' : j === k ? '#C62828' : 'transparent'; });
+        btns.forEach((b, j) => {
+          b.style.borderLeftColor = j === k ? GREEN : 'transparent';
+          b.style.background = j === k ? 'rgba(28,58,28,.08)' : '';
+        });
         onAnswer(k);
       } }, h('span', { class: 'grow' }, o)));
       return { btns, lock: () => { answered = true; } };

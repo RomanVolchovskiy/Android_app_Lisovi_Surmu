@@ -62,6 +62,40 @@ const partChip = (part, points) => h('span', { style: {
 const actBtn = (ic, label, color, onClick) => h('button', { class: 'btn text', style: { color, padding: '6px 8px', fontSize: '12px', gap: '4px' }, onClick },
   h('span', { class: 'mi', style: { fontSize: '16px' } }, ic), label);
 
+// Поле CSV: лапки, якщо містить ';', '"' чи перенос рядка (RFC 4180).
+const csvField = (v) => {
+  const s = String(v ?? '');
+  return /[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+
+// Експорт результатів сесії в CSV (UTF-8 з BOM, роздільник ';' — для Excel).
+function exportResultsCsv(session, subs) {
+  const max = totalMax(session);
+  const statusLabel = (sub) => {
+    if (sub.status !== 'graded') return 'Очікує';
+    return totalPts(sub) >= (session.passingScore ?? 60) ? 'Зараховано' : 'Не зараховано';
+  };
+  const header = ['№', 'ПІБ', 'Статус', 'Теорія правильних', 'Теорія з', 'Теорія бали',
+    'Аудіо правильних', 'Аудіо з', 'Аудіо бали', 'Файл', 'Разом балів', 'з', 'Здано', 'Коментар'];
+  const rows = subs.map((sub, i) => [
+    i + 1, sub.studentName, statusLabel(sub),
+    sub.theoryCorrect ?? 0, sub.theoryTotal ?? 0, theoryPts(sub),
+    sub.audioCorrect ?? 0, sub.audioTotal ?? 0, audioPts(sub),
+    sub.fileName || '', totalPts(sub), max,
+    fmt(toDate(sub.submittedAt)), sub.adminNote || '',
+  ]);
+  const text = [header, ...rows].map((r) => r.map(csvField).join(';')).join('\r\n');
+  const blob = new Blob(['﻿' + text], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const d = new Date();
+  const name = `Результати_${session.code}_${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}.csv`;
+  const a = h('a', { href: url, download: name, style: { display: 'none' } });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
 export function openAdminExams() {
   pushScreen(({ pop }) => {
     let current = 'sessions';
@@ -264,10 +298,10 @@ function openResults(session) {
     const body = h('div', { class: 'body-inner' });
     const summary = h('div');
     const max = totalMax(session);
+    let subs = [];
 
     const load = async () => {
       clear(summary); clear(body).append(spinner());
-      let subs;
       try { subs = await loadSubmissions(session.id); } catch (e) { clear(body).append(emptyState('error_outline', 'Помилка завантаження', e.message)); return; }
       clear(body);
       if (!subs.length) { body.append(emptyState('people_outline', 'Ніхто ще не здав цю сесію')); return; }
@@ -349,6 +383,10 @@ function openResults(session) {
     load();
     return h('div', { class: 'page', style: { background: 'var(--bg)' } },
       appBar(session.title, { back: pop, cls: 'brown', actions: [
+        h('button', { class: 'iconbtn', title: 'Експортувати CSV', onClick: () => {
+          if (!subs.length) { toast('Ще немає жодної зданої роботи', 'err'); return; }
+          exportResultsCsv(session, subs);
+        } }, icon('download')),
         h('button', { class: 'iconbtn', title: 'Оновити', onClick: load }, icon('refresh')),
       ] }),
       summary,
