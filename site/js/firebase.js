@@ -2,7 +2,7 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
 import {
   getFirestore, collection, doc, getDocs, getDoc, getDocFromServer, setDoc, updateDoc, deleteDoc,
-  onSnapshot, query, where, orderBy, writeBatch, runTransaction,
+  onSnapshot, query, where, orderBy, limit, writeBatch, runTransaction,
   serverTimestamp, increment, arrayUnion, Timestamp,
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
 import {
@@ -27,7 +27,7 @@ export const storage = getStorage(app);
 export const auth = getAuth(app);
 auth.languageCode = 'uk';
 export {
-  collection, doc, getDocs, getDoc, getDocFromServer, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy,
+  collection, doc, getDocs, getDoc, getDocFromServer, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, limit,
   writeBatch, runTransaction, serverTimestamp, increment, arrayUnion, Timestamp,
   storageRef, uploadBytes, getDownloadURL,
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,

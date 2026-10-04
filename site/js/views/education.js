@@ -1,6 +1,6 @@
 // Вкладка «Навчання» (EducationScreen): теоретичні та практичні матеріали,
 // план навчання, флеш-картки, тестування.
-import { h, icon, toast, clear, emptyState, pushScreen, appBar, spinner, promptDialog } from '../ui.js';
+import { h, icon, toast, clear, emptyState, pushScreen, appBar, spinner } from '../ui.js';
 import { db, collection, getDocs, query, where } from '../firebase.js';
 import { getSignals, isYouTube, youTubeId, mediaUrl, driveId } from '../data.js';
 import { audio } from '../audio.js';
@@ -8,6 +8,7 @@ import { openVideo } from './video.js';
 import { openNotation } from './notation.js';
 import { openMagicHorn } from './trainer-horn.js';
 import { openMetronome } from './trainer-metronome.js';
+import { openExamEntry } from './exam.js';
 
 const cache = {};
 /** Скидає кеш — після змін в адмін-панелі навчання розділ підтягне свіжі дані. */
@@ -233,10 +234,7 @@ async function testsTab() {
         h('div', { style: { fontWeight: 600, margin: '10px 0 6px' } }, '📖 Теоретичний тест'),
         h('button', { class: 'btn text', style: { justifyContent: 'flex-start' }, onClick: openTheoryTopics }, icon('menu_book'), 'Обрати тему'))),
     card('school', 'Іспит', 'Введіть код сесії, наданий адміністратором', '#1565C0',
-      h('button', { class: 'btn', onClick: async () => {
-        const code = await promptDialog('Іспит', { label: 'Код сесії', placeholder: 'XXXXXX', okLabel: 'Почати' });
-        if (code) toast('Іспити за кодом будуть доступні у наступній фазі сайту');
-      } }, 'Ввести код сесії')));
+      h('button', { class: 'btn', onClick: () => openExamEntry() }, 'Ввести код сесії')));
 }
 
 function startAudioTest(difficulty) {
