@@ -1,6 +1,6 @@
 // Управління навчанням (AdminEducationScreen): теми, навчальні матеріали,
 // флеш-картки, питання тестів. Ті самі колекції й поля, що в EducationService.
-import { h, icon, toast, pushScreen, appBar, confirmDialog, pickFiles, clear, spinner, emptyState } from '../ui.js';
+import { h, icon, toast, pushScreen, appBar, confirmDialog, pickFiles, clear, spinner, emptyState, openDialog } from '../ui.js';
 import { db, collection, doc, getDocs, setDoc, deleteDoc, query, where, writeBatch } from '../firebase.js';
 import { uploadMedia, youTubeId, AUDIO_EXT, IMAGE_EXT, VIDEO_EXT } from '../data.js';
 import { invalidateEducationCache } from './education.js';
@@ -380,8 +380,96 @@ export function openAdminEducation() {
 
     render();
     return h('div', { class: 'page', style: { background: 'var(--bg)' } },
-      appBar('Управління навчанням', { back: pop, cls: 'brown' }),
+      appBar('Управління навчанням', { back: pop, cls: 'brown', actions: [
+        h('button', { class: 'iconbtn', title: 'Перевірити якість даних', onClick: () => openDataCheck() }, icon('cleaning_services')),
+      ] }),
       tabs,
       h('div', { class: 'body' }, body));
   });
+}
+
+// ── Перевірка якості даних ──────────────────────────────────────────────────
+// Виправляє на місці (від імені адміністратора) два відомі дефекти:
+//  • розмітку формул із джерела карток: «$150$», «$20\%$», «$40\,000$»;
+//  • картки, розірвані старим імпортом CSV по першій комі: питання
+//    починається з лапки, а в відповідь потрапив хвіст питання з «","».
+
+/** «$150$» → «150», «\%» → «%», «\,» (тонкий пробіл між розрядами) → пробіл. */
+export function cleanFormula(text) {
+  if (typeof text !== 'string' || !text.includes('$')) return text;
+  return text.replace(/\$([^$]{1,40})\$/g, (_, inner) => inner.replace(/\\%/g, '%').replace(/\\,/g, ' ').trim());
+}
+
+/** Склеює розірвану картку; null — картка ціла. */
+export function repairSplitCard(question, answer) {
+  const q = question || '', a = answer || '';
+  if (!(q.startsWith('"') || a.trimEnd().endsWith('"') || a.includes('","') || a.includes('?",'))) return null;
+  const p = splitCsvLine(`${q},${a}`);
+  if (p.length !== 2 || !p[0].trim() || !p[1].trim()) return null;
+  return { question: p[0].trim().replace(/,(?=[^\s\d])/g, ', '), answer: p[1].trim() };
+}
+
+/** Зміни для однієї картки / питання тесту: { fields, kinds } або null. */
+export function planCardFix(card) {
+  const kinds = [];
+  let { question, answer } = card;
+  const rep = repairSplitCard(question, answer);
+  if (rep) { ({ question, answer } = rep); kinds.push('split'); }
+  const q2 = cleanFormula(question), a2 = cleanFormula(answer);
+  if (q2 !== question || a2 !== answer) kinds.push('formula');
+  return kinds.length ? { fields: { question: q2, answer: a2 }, kinds } : null;
+}
+export function planQuestionFix(q) {
+  const fields = {};
+  const t = cleanFormula(q.question);
+  if (t !== q.question) fields.question = t;
+  const opts = Array.isArray(q.options) ? q.options.map(cleanFormula) : q.options;
+  if (Array.isArray(q.options) && opts.some((o, i) => o !== q.options[i])) fields.options = opts;
+  const ex = cleanFormula(q.explanation);
+  if (ex !== q.explanation) fields.explanation = ex;
+  return Object.keys(fields).length ? { fields, kinds: ['formula'] } : null;
+}
+
+function openDataCheck() {
+  const box = h('div', {}, spinner());
+  const d = openDialog([h('h3', {}, 'Перевірка якості даних'), box]);
+  (async () => {
+    const [cardsSnap, qSnap] = await Promise.all([getDocs(collection(db, FLASHCARDS)), getDocs(collection(db, QUESTIONS))]);
+    const fixes = [];
+    cardsSnap.docs.forEach((s) => { const f = planCardFix(s.data()); if (f) fixes.push({ col: FLASHCARDS, id: s.id, before: s.data(), ...f }); });
+    qSnap.docs.forEach((s) => { const f = planQuestionFix(s.data()); if (f) fixes.push({ col: QUESTIONS, id: s.id, before: s.data(), ...f }); });
+    const n = (col, kind) => fixes.filter((f) => f.col === col && f.kinds.includes(kind)).length;
+    clear(box);
+    if (!fixes.length) {
+      box.append(h('div', { class: 'sec-text' }, `Перевірено ${cardsSnap.size} карток і ${qSnap.size} питань тестів — проблем не знайдено.`),
+        h('div', { class: 'row' }, h('button', { class: 'btn', onClick: () => d.close() }, 'Закрити')));
+      return;
+    }
+    const example = fixes.find((f) => f.kinds.includes('split')) || fixes[0];
+    const show = (o) => `${(o.question || '').slice(0, 90)} → ${String(o.answer ?? (o.options || []).join(' / ')).slice(0, 70)}`;
+    const go = h('button', { class: 'btn', onClick: async () => {
+      go.disabled = true; go.textContent = 'Виправлення…';
+      try {
+        for (let i = 0; i < fixes.length; i += 400) {
+          const batch = writeBatch(db);
+          fixes.slice(i, i + 400).forEach((f) => batch.update(doc(db, f.col, f.id), f.fields));
+          await batch.commit();
+        }
+        invalidateEducationCache();
+        d.close();
+        toast(`Виправлено записів: ${fixes.length}`, 'ok', 4000);
+      } catch (e) { go.disabled = false; go.textContent = 'Спробувати ще раз'; toast(`Помилка: ${e.message}`, 'err'); }
+    } }, `Виправити (${fixes.length})`);
+    box.append(
+      h('div', { class: 'sec-text' }, `Перевірено ${cardsSnap.size} карток і ${qSnap.size} питань тестів. Знайдено:`),
+      h('ul', { style: { margin: '8px 0', paddingLeft: '20px', lineHeight: 1.6 } },
+        n(FLASHCARDS, 'split') ? h('li', {}, `розірваних карток (частина питання у відповіді): ${n(FLASHCARDS, 'split')}`) : null,
+        n(FLASHCARDS, 'formula') ? h('li', {}, `карток із розміткою формул ($…$): ${n(FLASHCARDS, 'formula')}`) : null,
+        n(QUESTIONS, 'formula') ? h('li', {}, `питань тестів із розміткою формул ($…$): ${n(QUESTIONS, 'formula')}`) : null),
+      h('div', { class: 's', style: { fontWeight: 600 } }, 'Приклад:'),
+      h('div', { class: 's', style: { color: '#C62828' } }, `Було: ${show(example.before)}`),
+      h('div', { class: 's', style: { color: '#2E7D32', marginBottom: '8px' } }, `Стане: ${show({ ...example.before, ...example.fields })}`),
+      h('div', { class: 's', style: { marginBottom: '8px' } }, 'Змінюється лише текст цих записів; теми, порядок і інші поля лишаються як є.'),
+      h('div', { class: 'row' }, h('button', { class: 'btn text', onClick: () => d.close() }, 'Скасувати'), go));
+  })().catch((e) => clear(box).append(h('div', { class: 'err' }, `Помилка: ${e.message}`)));
 }
