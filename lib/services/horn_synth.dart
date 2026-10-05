@@ -80,9 +80,9 @@ class HornSynth {
   }
 
   /// Грає ноту доріжки [lane] (0 = ДО … 4 = СОЛЬ2).
-  Future<void> play(int lane) async {
+  Future<void> play(int lane, {double volume = 1.0}) async {
     if (!_ready || lane < 0 || lane >= _players.length) return;
-    await _trigger(_players[lane], 1.0);
+    await _trigger(_players[lane], volume);
   }
 
   /// Удар метронома: [kind] — clickAccent / clickBeat / clickSub.

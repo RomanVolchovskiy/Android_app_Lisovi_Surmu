@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:hunting_signals/models/hunting_models.dart';
+import 'package:hunting_signals/screens/breathing_screen.dart';
 import 'package:hunting_signals/screens/magic_horn_game_screen.dart';
 import 'package:hunting_signals/screens/metronome_screen.dart';
 import 'package:hunting_signals/services/hunting_data_service.dart';
@@ -11,7 +12,8 @@ import 'package:hunting_signals/widgets/signal_card.dart' show openSignalNotatio
 ///
 /// Внутрішні вкладки-фішки:
 ///  • «Примітивні ноти» — вибір сигналу відкриває його екран «Ноти»;
-///  • «Чарівна сурма» — ритмічна гра для сигналів із графічними нотами.
+///  • «Чарівна сурма» — ритмічна гра для сигналів із графічними нотами;
+///  • «Метроном»; «Дихальна гімнастика» — вправи з адмін-панелі.
 class TrainersScreen extends StatefulWidget {
   const TrainersScreen({super.key});
 
@@ -28,6 +30,7 @@ class _TrainersScreenState extends State<TrainersScreen> {
     (icon: Icons.music_note_rounded, label: 'Примітивні ноти'),
     (icon: Icons.sports_esports_rounded, label: 'Чарівна сурма'),
     (icon: Icons.timer_rounded, label: 'Метроном'),
+    (icon: Icons.air, label: 'Дихальна гімнастика'),
   ];
 
   @override
@@ -78,7 +81,12 @@ class _TrainersScreenState extends State<TrainersScreen> {
         Expanded(
           child: _loading
               ? const Center(child: CircularProgressIndicator())
-              : (_current == 0 ? _primitiveNotes() : _current == 1 ? _magicHorn() : _metronome()),
+              : switch (_current) {
+                  0 => _primitiveNotes(),
+                  1 => _magicHorn(),
+                  2 => _metronome(),
+                  _ => const BreathingTrainerTab(),
+                },
         ),
       ],
     );
