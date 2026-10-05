@@ -113,10 +113,20 @@ export function openAdminExams() {
       try { sessions = await loadSessions(); draw(); } catch (e) { clear(body).append(emptyState('error_outline', 'Помилка завантаження', e.message)); }
     };
 
-    const create = () => openCreateSession(async (s) => {
+    const create = () => openSessionForm(null, async (s) => {
       try {
         await setDoc(doc(db, SESSIONS, s.id), s);
         toast(`Сесію «${s.title}» створено. Код: ${s.code}`, 'ok', 4000);
+        reload();
+        return true;
+      } catch (e) { toast(`Помилка збереження: ${e.message}`, 'err'); return false; }
+    });
+
+    // merge: невідомі формі поля документа не стираються
+    const edit = (existing) => openSessionForm(existing, async (s) => {
+      try {
+        await setDoc(doc(db, SESSIONS, s.id), s, { merge: true });
+        toast(`Сесію «${s.title}» збережено`, 'ok');
         reload();
         return true;
       } catch (e) { toast(`Помилка збереження: ${e.message}`, 'err'); return false; }
@@ -150,6 +160,7 @@ export function openAdminExams() {
           s.status === 'active' ? actBtn('lock', 'Закрити', '#EF6C00', () => setStatus(s, 'closed')) : null,
           s.status === 'closed' ? actBtn('lock_open', 'Відкрити', '#2E7D32', () => setStatus(s, 'active')) : null,
           h('div', { class: 'grow' }),
+          actBtn('edit', 'Редагувати', '#5D4037', () => edit(s)),
           actBtn('bar_chart', 'Результати', '#1C3A1C', () => openResults(s)),
           actBtn('delete_outline', 'Видалити', '#C62828', () => remove(s))));
     };
@@ -181,8 +192,11 @@ export function openAdminExams() {
   });
 }
 
-// ── Створення сесії (_CreateSessionScreen) ──────────────────────────────────
-function openCreateSession(onSave) {
+// ── Створення / редагування сесії (_CreateSessionScreen) ────────────────────
+// existing = null — нова сесія; інакше форма заповнюється її полями, а код,
+// дата створення й статус лишаються незмінними.
+function openSessionForm(existing, onSave) {
+  const e = existing || {};
   pushScreen(async ({ pop }) => {
     let topics = [];
     try {
@@ -192,27 +206,29 @@ function openCreateSession(onSave) {
 
     const field = (label, el) => h('label', { class: 'field' }, h('span', {}, label), el);
     const num = (value) => h('input', { type: 'number', min: 0, value });
-    const title = h('input', { type: 'text', placeholder: 'Напр. Залік з мисливських сигналів' });
-    const passing = num(60);
-    const hasDeadline = h('input', { type: 'checkbox' });
+    const title = h('input', { type: 'text', placeholder: 'Напр. Залік з мисливських сигналів', value: e.title ?? '' });
+    const passing = num(e.passingScore ?? 60);
+    const oldDeadline = toDate(e.deadline);
+    const hasDeadline = h('input', { type: 'checkbox', checked: !!oldDeadline });
     const week = new Date(Date.now() + 7 * 864e5);
     const local = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-    const deadline = h('input', { type: 'datetime-local', value: local(week), min: local(new Date()), disabled: true });
+    const deadline = h('input', { type: 'datetime-local', value: local(oldDeadline ?? week), min: existing ? null : local(new Date()), disabled: !oldDeadline });
     hasDeadline.addEventListener('change', () => { deadline.disabled = !hasDeadline.checked; });
 
-    const topic = h('select', {}, h('option', { value: '' }, '— оберіть тему —'), topics.map((t) => h('option', { value: t.id }, t.name)));
-    const theoryMax = num(40); const theoryCount = num(10);
-    const difficulty = h('select', {}, [['', 'Усі рівні'], ['easy', '🟢 Легкий'], ['medium', '🟡 Середній'], ['hard', '🔴 Важкий']].map(([v, l]) => h('option', { value: v }, l)));
-    const audioMax = num(30); const audioCount = num(10);
-    const fileMax = num(30);
-    const fileDesc = h('textarea', { placeholder: 'Що студент має завантажити' });
+    const topic = h('select', {}, h('option', { value: '' }, '— оберіть тему —'), topics.map((t) => h('option', { value: t.id, selected: t.id === e.theoryTopicId }, t.name)));
+    const theoryMax = num(e.theoryEnabled ? e.theoryMaxPoints : 40); const theoryCount = num(e.theoryQuestionCount ?? 10);
+    const difficulty = h('select', {}, [['', 'Усі рівні'], ['easy', '🟢 Легкий'], ['medium', '🟡 Середній'], ['hard', '🔴 Важкий']].map(([v, l]) => h('option', { value: v, selected: v === (e.audioDifficulty ?? '') }, l)));
+    const audioMax = num(e.audioEnabled ? e.audioMaxPoints : 30); const audioCount = num(e.audioQuestionCount ?? 10);
+    const fileMax = num(e.fileEnabled ? e.fileMaxPoints : 30);
+    const fileDesc = h('textarea', { placeholder: 'Що студент має завантажити', value: e.fileTaskDescription ?? '' });
 
     const sumLabel = h('span');
     const toggles = {};
     const component = (part, title, fields) => {
-      const cb = h('input', { type: 'checkbox' });
-      const inner = h('div', { hidden: true, style: { padding: '12px 4px 0' } }, fields);
-      const box = h('div', { class: 'tile', style: { display: 'block', border: '1px solid #ddd' } },
+      const on = !!e[`${part}Enabled`];
+      const cb = h('input', { type: 'checkbox', checked: on });
+      const inner = h('div', { hidden: !on, style: { padding: '12px 4px 0' } }, fields);
+      const box = h('div', { class: 'tile', style: { display: 'block', border: `1px solid ${on ? `${PARTS[part].color}80` : '#ddd'}` } },
         h('label', { style: { display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' } },
           h('span', { class: 'mi', style: { color: PARTS[part].color } }, PARTS[part].icon),
           h('span', { class: 't grow' }, title), cb),
@@ -244,12 +260,12 @@ function openCreateSession(onSave) {
       const now = new Date();
       const t = topics.find((x) => x.id === topic.value);
       const session = {
-        id: String(now.getTime()),
-        code: generateCode(),
+        id: existing ? existing.id : String(now.getTime()),
+        code: existing ? existing.code : generateCode(),
         title: title.value.trim(),
-        createdAt: Timestamp.fromDate(now),
+        createdAt: existing ? existing.createdAt : Timestamp.fromDate(now),
         deadline: hasDeadline.checked ? Timestamp.fromDate(new Date(deadline.value)) : null,
-        status: 'draft',
+        status: existing ? existing.status : 'draft',
         passingScore: int(passing.value) ?? 60,
         theoryEnabled: theory.checked,
         theoryTopicId: theory.checked ? topic.value : null,
@@ -267,10 +283,13 @@ function openCreateSession(onSave) {
       saveBtn.disabled = true;
       try { if (await onSave(session)) pop(); } finally { saveBtn.disabled = false; }
     };
-    const saveBtn = h('button', { class: 'btn block', style: { padding: '14px', marginTop: '12px' }, onClick: save }, 'Створити сесію');
+    const saveBtn = h('button', { class: 'btn block', style: { padding: '14px', marginTop: '12px' }, onClick: save }, existing ? 'Зберегти зміни' : 'Створити сесію');
 
     const form = h('div', { class: 'body-inner' },
       h('div', { class: 'form-section' }, 'Основне'),
+      existing && existing.status !== 'draft' ? h('div', { class: 'tile', style: { display: 'block', background: '#FFF3E0', fontSize: '13px' } },
+        'Сесія вже ', existing.status === 'active' ? 'активна' : 'закрита',
+        '. Зміна складових чи балів не перераховує вже здані роботи — їхні бали лишаться за старими умовами.') : null,
       field('Назва сесії *', title),
       field('Прохідний бал', passing),
       h('label', { class: 'dk-row', style: { fontSize: '14px', marginBottom: '8px' } }, hasDeadline, ' Дедлайн здачі'),
@@ -287,7 +306,7 @@ function openCreateSession(onSave) {
     updateSum();
 
     return h('div', { class: 'page', style: { background: 'var(--bg)' } },
-      appBar('Нова сесія іспиту', { back: pop, cls: 'brown' }),
+      appBar(existing ? 'Редагування сесії' : 'Нова сесія іспиту', { back: pop, cls: 'brown' }),
       h('div', { class: 'body' }, form));
   });
 }
