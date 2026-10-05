@@ -49,6 +49,7 @@ service cloud.firestore {
         'signals', 'materials', 'global_events',
         'edu_topics', 'edu_learning_materials', 'edu_flashcards', 'edu_test_questions',
         'practical_topics', 'practical_materials', 'study_plan', 'exam_sessions',
+        'breathing_exercises',
       ];
     }
 
@@ -140,16 +141,28 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // ── Дихальна гімнастика: журнал виконань студента ──────────────────
+    // Свій запис створює лише сам студент (uid = свій); читає власник і
+    // адміністратор; змінює й видаляє лише адміністратор.
+    match /breathing_sessions/{id} {
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.exerciseId is string
+        && request.resource.data.createdAt == request.time;
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow update, delete: if isAdmin();
+    }
+
     // ── Решта колекцій ──────────────────────────────────────────────────
     // Контент адмін-панелі (adminOnly) змінює лише адміністратор; інші
     // колекції (shared_events тощо) — будь-хто залогінений. Колекції доступу
     // й іспитові роботи тут виключено: для них діють правила вище (правила
     // Firestore об'єднуються через «або», тож інакше вони б їх послабили).
     match /{collection}/{document=**} {
-      allow read: if !(collection in ['users', 'access_codes', 'app_access', 'exam_submissions']);
+      allow read: if !(collection in ['users', 'access_codes', 'app_access', 'exam_submissions', 'breathing_sessions']);
       allow write: if adminOnly(collection)
                    ? isAdmin()
-                   : signedIn() && !(collection in ['users', 'access_codes', 'app_access', 'exam_submissions']);
+                   : signedIn() && !(collection in ['users', 'access_codes', 'app_access', 'exam_submissions', 'breathing_sessions']);
     }
   }
 }

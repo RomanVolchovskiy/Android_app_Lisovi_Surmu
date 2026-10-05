@@ -9,6 +9,7 @@ import { openNotation } from './notation.js';
 import { openMagicHorn } from './trainer-horn.js';
 import { openMetronome } from './trainer-metronome.js';
 import { openExamEntry } from './exam.js';
+import { breathingTrainer } from './trainer-breathing.js';
 
 const cache = {};
 /** Скидає кеш — після змін в адмін-панелі навчання розділ підтягне свіжі дані. */
@@ -318,6 +319,7 @@ const TRAINERS = [
   { id: 'notes', icon: 'music_note', label: 'Примітивні ноти', render: primitiveNotesTrainer },
   { id: 'horn', icon: 'sports_esports', label: 'Чарівна сурма', render: magicHornTrainer },
   { id: 'metronome', icon: 'timer', label: 'Метроном', render: metronomeTrainer },
+  { id: 'breathing', icon: 'air', label: 'Дихальна гімнастика', render: breathingTrainer },
 ];
 
 async function trainersTab() {
