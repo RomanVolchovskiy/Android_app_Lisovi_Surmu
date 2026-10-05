@@ -389,10 +389,21 @@ export function openAdminEducation() {
 }
 
 // ── Перевірка якості даних ──────────────────────────────────────────────────
-// Виправляє на місці (від імені адміністратора) два відомі дефекти:
+// Виправляє на місці (від імені адміністратора) відомі дефекти:
 //  • розмітку формул із джерела карток: «$150$», «$20\%$», «$40\,000$»;
 //  • картки, розірвані старим імпортом CSV по першій комі: питання
-//    починається з лапки, а в відповідь потрапив хвіст питання з «","».
+//    починається з лапки, а в відповідь потрапив хвіст питання з «","»;
+//  • «картки», які насправді є рядками тестів (CSV тестів імпортовано на
+//    вкладці «Флеш-картки») — такі видаляються.
+
+/**
+ * Відповідь картки — це рядок тесту «варіант1,…,варіант4,номер(0–3)[,пояснення]»?
+ * Суворо: рівно чотири непорожні варіанти, п'яте поле — одна цифра 0–3.
+ */
+export function isTestRowAnswer(answer) {
+  const p = splitCsvLine(answer || '');
+  return p.length >= 5 && p.slice(0, 4).every((o) => o.trim() && o.trim().length <= 120) && /^[0-3]$/.test(p[4].trim());
+}
 
 /** «$150$» → «150», «\%» → «%», «\,» (тонкий пробіл між розрядами) → пробіл. */
 export function cleanFormula(text) {
@@ -411,6 +422,7 @@ export function repairSplitCard(question, answer) {
 
 /** Зміни для однієї картки / питання тесту: { fields, kinds } або null. */
 export function planCardFix(card) {
+  if (isTestRowAnswer(card.answer)) return { remove: true, kinds: ['testrow'] };
   const kinds = [];
   let { question, answer } = card;
   const rep = repairSplitCard(question, answer);
@@ -445,19 +457,20 @@ function openDataCheck() {
         h('div', { class: 'row' }, h('button', { class: 'btn', onClick: () => d.close() }, 'Закрити')));
       return;
     }
-    const example = fixes.find((f) => f.kinds.includes('split')) || fixes[0];
+    const removals = fixes.filter((f) => f.remove);
+    const example = fixes.find((f) => f.kinds.includes('split')) || fixes.find((f) => !f.remove);
     const show = (o) => `${(o.question || '').slice(0, 90)} → ${String(o.answer ?? (o.options || []).join(' / ')).slice(0, 70)}`;
     const go = h('button', { class: 'btn', onClick: async () => {
       go.disabled = true; go.textContent = 'Виправлення…';
       try {
         for (let i = 0; i < fixes.length; i += 400) {
           const batch = writeBatch(db);
-          fixes.slice(i, i + 400).forEach((f) => batch.update(doc(db, f.col, f.id), f.fields));
+          fixes.slice(i, i + 400).forEach((f) => (f.remove ? batch.delete(doc(db, f.col, f.id)) : batch.update(doc(db, f.col, f.id), f.fields)));
           await batch.commit();
         }
         invalidateEducationCache();
         d.close();
-        toast(`Виправлено записів: ${fixes.length}`, 'ok', 4000);
+        toast(`Виправлено: ${fixes.length - removals.length}, видалено: ${removals.length}`, 'ok', 4000);
       } catch (e) { go.disabled = false; go.textContent = 'Спробувати ще раз'; toast(`Помилка: ${e.message}`, 'err'); }
     } }, `Виправити (${fixes.length})`);
     box.append(
@@ -465,11 +478,19 @@ function openDataCheck() {
       h('ul', { style: { margin: '8px 0', paddingLeft: '20px', lineHeight: 1.6 } },
         n(FLASHCARDS, 'split') ? h('li', {}, `розірваних карток (частина питання у відповіді): ${n(FLASHCARDS, 'split')}`) : null,
         n(FLASHCARDS, 'formula') ? h('li', {}, `карток із розміткою формул ($…$): ${n(FLASHCARDS, 'formula')}`) : null,
-        n(QUESTIONS, 'formula') ? h('li', {}, `питань тестів із розміткою формул ($…$): ${n(QUESTIONS, 'formula')}`) : null),
-      h('div', { class: 's', style: { fontWeight: 600 } }, 'Приклад:'),
-      h('div', { class: 's', style: { color: '#C62828' } }, `Було: ${show(example.before)}`),
-      h('div', { class: 's', style: { color: '#2E7D32', marginBottom: '8px' } }, `Стане: ${show({ ...example.before, ...example.fields })}`),
-      h('div', { class: 's', style: { marginBottom: '8px' } }, 'Змінюється лише текст цих записів; теми, порядок і інші поля лишаються як є.'),
+        n(QUESTIONS, 'formula') ? h('li', {}, `питань тестів із розміткою формул ($…$): ${n(QUESTIONS, 'formula')}`) : null,
+        removals.length ? h('li', { style: { color: '#C62828' } }, `карток, що насправді є рядками тесту — буде ВИДАЛЕНО: ${removals.length}`) : null),
+      example ? [
+        h('div', { class: 's', style: { fontWeight: 600 } }, 'Приклад виправлення:'),
+        h('div', { class: 's', style: { color: '#C62828' } }, `Було: ${show(example.before)}`),
+        h('div', { class: 's', style: { color: '#2E7D32', marginBottom: '8px' } }, `Стане: ${show({ ...example.before, ...example.fields })}`),
+      ] : null,
+      removals.length ? [
+        h('div', { class: 's', style: { fontWeight: 600 } }, 'Буде видалено (картки-рядки тесту):'),
+        h('ul', { class: 's', style: { margin: '4px 0 8px', paddingLeft: '20px', maxHeight: '140px', overflowY: 'auto' } },
+          removals.map((f) => h('li', {}, `${(f.before.question || '').slice(0, 80)} → ${String(f.before.answer || '').slice(0, 40)}…`))),
+      ] : null,
+      h('div', { class: 's', style: { marginBottom: '8px' } }, 'Змінюється лише текст виправлених записів; теми, порядок і інші поля лишаються як є.'),
       h('div', { class: 'row' }, h('button', { class: 'btn text', onClick: () => d.close() }, 'Скасувати'), go));
   })().catch((e) => clear(box).append(h('div', { class: 'err' }, `Помилка: ${e.message}`)));
 }
