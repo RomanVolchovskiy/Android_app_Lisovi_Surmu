@@ -12,6 +12,7 @@ import { openAdminAccess } from './admin-access.js';
 import { openAdminEducation } from './admin-education.js';
 import { openAdminExams } from './admin-exams.js';
 import { openAdminBreathing } from './admin-breathing.js';
+import { openAdminPokit } from './admin-pokit.js';
 import { isAdminUser, loadConfig } from '../access.js';
 
 // Доступ — за акаунтом Firebase Auth (isAdminUser), а не за паролем:
@@ -40,6 +41,7 @@ function openAdminPanel() {
         tile('event_note', 'Управління подіями', 'Глобальні мисливські події', () => openAdminEvents()),
         tile('quiz', 'Управління іспитами', 'Сесії іспитів та результати', () => openAdminExams()),
         tile('air', 'Дихальні вправи', 'Вправи дихальної гімнастики для тренажера', () => openAdminBreathing()),
+        tile('pets', 'Покіт: розкладка здобичі', 'Довідник видів і порядок розкладки', () => openAdminPokit()),
         tile('vpn_key', 'Коди доступу', 'Пробний період, корпоративні домени, коди', () => openAdminAccess()))));
   });
 }

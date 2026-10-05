@@ -10,6 +10,7 @@ import { openMagicHorn } from './trainer-horn.js';
 import { openMetronome } from './trainer-metronome.js';
 import { openExamEntry } from './exam.js';
 import { breathingTrainer } from './trainer-breathing.js';
+import { pokitTrainer } from './trainer-pokit.js';
 
 const cache = {};
 /** Скидає кеш — після змін в адмін-панелі навчання розділ підтягне свіжі дані. */
@@ -320,6 +321,7 @@ const TRAINERS = [
   { id: 'horn', icon: 'sports_esports', label: 'Чарівна сурма', render: magicHornTrainer },
   { id: 'metronome', icon: 'timer', label: 'Метроном', render: metronomeTrainer },
   { id: 'breathing', icon: 'air', label: 'Дихальна гімнастика', render: breathingTrainer },
+  { id: 'pokit', icon: 'pets', label: 'Покіт: розкладка здобичі', render: pokitTrainer },
 ];
 
 async function trainersTab() {

@@ -49,7 +49,7 @@ service cloud.firestore {
         'signals', 'materials', 'global_events',
         'edu_topics', 'edu_learning_materials', 'edu_flashcards', 'edu_test_questions',
         'practical_topics', 'practical_materials', 'study_plan', 'exam_sessions',
-        'breathing_exercises',
+        'breathing_exercises', 'pokit_species', 'pokit_trainer',
       ];
     }
 
@@ -153,16 +153,26 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // ── Покіт: журнал спроб студента (як breathing_sessions) ───────────
+    match /pokit_sessions/{id} {
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.percent is number
+        && request.resource.data.createdAt == request.time;
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow update, delete: if isAdmin();
+    }
+
     // ── Решта колекцій ──────────────────────────────────────────────────
     // Контент адмін-панелі (adminOnly) змінює лише адміністратор; інші
     // колекції (shared_events тощо) — будь-хто залогінений. Колекції доступу
     // й іспитові роботи тут виключено: для них діють правила вище (правила
     // Firestore об'єднуються через «або», тож інакше вони б їх послабили).
     match /{collection}/{document=**} {
-      allow read: if !(collection in ['users', 'access_codes', 'app_access', 'exam_submissions', 'breathing_sessions']);
+      allow read: if !(collection in ['users', 'access_codes', 'app_access', 'exam_submissions', 'breathing_sessions', 'pokit_sessions']);
       allow write: if adminOnly(collection)
                    ? isAdmin()
-                   : signedIn() && !(collection in ['users', 'access_codes', 'app_access', 'exam_submissions', 'breathing_sessions']);
+                   : signedIn() && !(collection in ['users', 'access_codes', 'app_access', 'exam_submissions', 'breathing_sessions', 'pokit_sessions']);
     }
   }
 }
