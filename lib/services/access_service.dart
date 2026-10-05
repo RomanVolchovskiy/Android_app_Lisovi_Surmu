@@ -87,7 +87,23 @@ class AccessService {
     } catch (_) {
       return false;
     }
-    return _auth.currentUser?.emailVerified ?? false;
+    final fresh = _auth.currentUser;
+    if (fresh == null || !fresh.emailVerified) return false;
+    // reload() оновлює лише профіль; токен для Firestore/Storage лишається зі
+    // старим email_verified=false до години — правила відхиляли б запити.
+    try {
+      await fresh.getIdToken(true);
+    } catch (_) {/* оновиться сам */}
+    return true;
+  }
+
+  /// Пошту підтвердили вже після видачі токена (зокрема на іншому пристрої):
+  /// профіль каже «підтверджено», а токен — ні.
+  static Future<void> _refreshStaleToken(User user) async {
+    try {
+      final t = await user.getIdTokenResult();
+      if (t.claims?['email_verified'] != true) await user.getIdToken(true);
+    } catch (_) {/* офлайн — оновиться пізніше */}
   }
 
   static Future<void> resetPassword(String email) async {
@@ -160,6 +176,7 @@ class AccessService {
       return _publish(const AccessStatus(AccessKind.expired));
     }
     try {
+      await _refreshStaleToken(user);
       final result = await _resolveOnline(user);
       await _writeCache(user.uid, result);
       return _publish(result);
