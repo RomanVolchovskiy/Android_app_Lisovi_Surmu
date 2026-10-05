@@ -100,7 +100,11 @@ export async function reloadVerified() {
   const u = auth.currentUser;
   if (!u) return false;
   try { await u.reload(); } catch { return false; }
-  return !!auth.currentUser?.emailVerified;
+  if (!auth.currentUser?.emailVerified) return false;
+  // reload() оновлює лише профіль; токен для Firestore/Storage лишається зі
+  // старим email_verified=false до години — правила відхиляли б запити.
+  try { await auth.currentUser.getIdToken(true); } catch { /* оновиться сам */ }
+  return true;
 }
 export async function logout() {
   publish(null);
@@ -132,6 +136,7 @@ export async function resolve() {
   const user = auth.currentUser;
   if (!user || !user.emailVerified) return publish({ kind: 'expired', until: null });
   try {
+    await refreshStaleToken(user);
     const s = await resolveOnline(user);
     writeCache(user.uid, s);
     return publish(s);
@@ -144,6 +149,15 @@ export async function resolve() {
     }
     throw new AccessError('Не вдалося перевірити доступ. Перевірте з’єднання з інтернетом');
   }
+}
+
+// Пошту підтвердили вже після видачі токена (зокрема в іншій вкладці):
+// профіль каже «підтверджено», а токен — ні, і правила відхиляють запити.
+async function refreshStaleToken(user) {
+  try {
+    const { claims } = await user.getIdTokenResult();
+    if (claims.email_verified !== true) await user.getIdToken(true);
+  } catch { /* офлайн — оновиться пізніше */ }
 }
 
 async function resolveOnline(user) {

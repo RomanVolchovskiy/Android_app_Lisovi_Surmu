@@ -3,7 +3,7 @@
 // Ті самі колекції й поля, що в ExamService — результати бачить адмін-панель.
 import { h, icon, toast, pushScreen, appBar, confirmDialog, pickFiles, clear, spinner, emptyState } from '../ui.js';
 import {
-  db, storage, collection, doc, getDocs, setDoc, query, where, limit, Timestamp,
+  db, auth, storage, collection, doc, getDocs, setDoc, query, where, limit, Timestamp,
   storageRef, uploadBytes, getDownloadURL,
 } from '../firebase.js';
 import { waitForSignals } from '../data.js';
@@ -31,7 +31,14 @@ async function sessionByCode(code) {
 }
 
 async function hasSubmitted(sessionId, name) {
-  const snap = await getDocs(query(collection(db, SUBMISSIONS), where('sessionId', '==', sessionId), where('studentName', '==', name), limit(1)));
+  const run = () => getDocs(query(collection(db, SUBMISSIONS), where('sessionId', '==', sessionId), where('studentName', '==', name), limit(1)));
+  let snap;
+  try { snap = await run(); } catch (e) {
+    // Застарілий токен (пошту підтвердили після входу) — оновлюємо й пробуємо ще раз
+    if (e.code !== 'permission-denied' || !auth.currentUser) throw e;
+    await auth.currentUser.getIdToken(true);
+    snap = await run();
+  }
   return !snap.empty;
 }
 
@@ -61,7 +68,9 @@ export function openExamEntry() {
         if (await hasSubmitted(session.id, n)) { fail('Ви вже здали цю сесію.'); return; }
         pop();
         openExamTaking(session, n);
-      } catch (e) { fail(`Помилка: ${e.message}`); } finally { start.disabled = false; }
+      } catch (e) {
+        fail(e.code === 'permission-denied' ? 'Немає доступу до іспиту. Вийдіть з акаунта й увійдіть знову.' : `Помилка: ${e.message}`);
+      } finally { start.disabled = false; }
     };
     start.addEventListener('click', enter);
     [code, name].forEach((el) => el.addEventListener('keydown', (e) => { if (e.key === 'Enter') enter(); }));
