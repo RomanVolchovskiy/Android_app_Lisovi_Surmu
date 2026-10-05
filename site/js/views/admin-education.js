@@ -46,6 +46,21 @@ async function write(action, okText) {
   }
 }
 
+/** Рядок CSV з комою-роздільником; поле в лапках "…" може містити коми,
+ *  а "" усередині — це лапка (так зберігає Excel). Без лапок — як раніше. */
+function splitCsvLine(line) {
+  const out = [];
+  let cur = '', quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (quoted) {
+      if (c === '"' && line[i + 1] === '"') { cur += '"'; i++; } else if (c === '"') quoted = false; else cur += c;
+    } else if (c === '"' && !cur.trim()) { quoted = true; cur = ''; } else if (c === ',') { out.push(cur); cur = ''; } else cur += c;
+  }
+  out.push(cur);
+  return out;
+}
+
 const field = (label, input) => h('label', { class: 'field' }, h('span', {}, label), input);
 const input = (value = '', placeholder = '', type = 'text') => h('input', { type, placeholder, value });
 const textarea = (value = '', placeholder = '') => h('textarea', { placeholder, value });
@@ -250,9 +265,9 @@ export function openAdminEducation() {
           };
         },
         parseCsv: (line) => {
-          const i = line.indexOf(',');
-          if (i < 1) return null;
-          const question = line.slice(0, i).trim(); const answer = line.slice(i + 1).trim();
+          // відповідь без лапок може містити коми — усе після першого поля
+          const [first, ...rest] = splitCsvLine(line);
+          const question = (first ?? '').trim(); const answer = rest.join(',').trim();
           return question && answer ? { question, answer } : null;
         },
       });
@@ -280,7 +295,7 @@ export function openAdminEducation() {
           };
         },
         parseCsv: (line) => {
-          const p = line.split(',');
+          const p = splitCsvLine(line);
           if (p.length < 6) return null;
           const question = p[0].trim(); const options = p.slice(1, 5).map((o) => o.trim());
           if (!question || options.some((o) => !o)) return null;
