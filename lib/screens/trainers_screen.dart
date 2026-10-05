@@ -4,6 +4,7 @@ import 'package:hunting_signals/models/hunting_models.dart';
 import 'package:hunting_signals/screens/breathing_screen.dart';
 import 'package:hunting_signals/screens/magic_horn_game_screen.dart';
 import 'package:hunting_signals/screens/metronome_screen.dart';
+import 'package:hunting_signals/screens/pokit_screen.dart';
 import 'package:hunting_signals/services/hunting_data_service.dart';
 import 'package:hunting_signals/theme/hunting_theme.dart';
 import 'package:hunting_signals/widgets/signal_card.dart' show openSignalNotation;
@@ -31,6 +32,7 @@ class _TrainersScreenState extends State<TrainersScreen> {
     (icon: Icons.sports_esports_rounded, label: 'Чарівна сурма'),
     (icon: Icons.timer_rounded, label: 'Метроном'),
     (icon: Icons.air, label: 'Дихальна гімнастика'),
+    (icon: Icons.pets, label: 'Покіт: розкладка здобичі'),
   ];
 
   @override
@@ -85,7 +87,8 @@ class _TrainersScreenState extends State<TrainersScreen> {
                   0 => _primitiveNotes(),
                   1 => _magicHorn(),
                   2 => _metronome(),
-                  _ => const BreathingTrainerTab(),
+                  3 => const BreathingTrainerTab(),
+                  _ => const PokitTrainerTab(),
                 },
         ),
       ],

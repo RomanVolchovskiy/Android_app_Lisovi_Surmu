@@ -6,6 +6,7 @@ import 'package:hunting_signals/screens/admin_events_screen.dart';
 import 'package:hunting_signals/screens/edit_signals_screen.dart';
 import 'package:hunting_signals/screens/admin_exam_screen.dart';
 import 'package:hunting_signals/screens/admin_breathing_screen.dart';
+import 'package:hunting_signals/screens/admin_pokit_screen.dart';
 import 'package:hunting_signals/screens/admin_access_screen.dart';
 
 class AdminPanelScreen extends StatefulWidget {
@@ -233,6 +234,18 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                         context,
                         MaterialPageRoute(
                           builder: (context) => const AdminBreathingScreen(),
+                        ),
+                      ),
+                    ),
+                    _buildAdminCard(
+                      context,
+                      'Покіт: розкладка здобичі',
+                      Icons.pets,
+                      Colors.brown.shade400,
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const AdminPokitScreen(),
                         ),
                       ),
                     ),
