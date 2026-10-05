@@ -324,7 +324,7 @@ function openMyResults() {
           icon(r.blocksCompleted >= r.blocksTotal ? 'check_circle' : 'timelapse'),
           h('div', { class: 'grow' }, h('div', { class: 't' }, r.exerciseTitle),
             h('div', { class: 's' }, [d ? d.toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '',
-              `блоків ${r.blocksCompleted}/${r.blocksTotal}`, (r.enduranceResults || []).length ? `видих у цілі ${inT}/${r.enduranceResults.length}` : ''].filter(Boolean).join(' · '))))));
+              `блоків ${r.blocksCompleted}/${r.blocksTotal}`, (r.enduranceResults || []).length ? `видих у цілі ${inT}/${r.enduranceResults.length}` : ''].filter(Boolean).join(' · ')))));
       });
     })().catch((e) => clear(body).append(emptyState('error_outline', 'Помилка завантаження', e.message)));
     return h('div', { class: 'page', style: { background: 'var(--bg)' } },
