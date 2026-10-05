@@ -2,7 +2,8 @@
 // два типи блоків — cycle (фази за таймером) і endurance (студент сам
 // засікає видих), запис виконання в breathing_sessions, «Мої результати».
 import { h, icon, toast, pushScreen, appBar, confirmDialog, clear, spinner, emptyState } from '../ui.js';
-import { db, auth, collection, doc, getDocs, getDoc, setDoc, query, where, serverTimestamp } from '../firebase.js';
+import { db, auth, collection, doc, getDocs, getDoc, setDoc, query, where, writeBatch, serverTimestamp } from '../firebase.js';
+import { isAdminUser } from '../access.js';
 import { playTone } from '../horn-synth.js';
 
 export const EXERCISES = 'breathing_exercises';
@@ -309,14 +310,30 @@ function openMyResults() {
   pushScreen(({ pop }) => {
     const body = h('div', { class: 'body-inner' }, spinner());
     const u = auth.currentUser;
-    (async () => {
+    // Видаляти записи дозволено лише адміністратору (правила breathing_sessions)
+    const admin = isAdminUser();
+    const remove = async (ids, what) => {
+      if (!await confirmDialog('Видалити?', `Видалити ${what}? Цю дію не можна скасувати.`, { okLabel: 'Видалити', cancelLabel: 'Скасувати', danger: true })) return;
+      try {
+        for (let i = 0; i < ids.length; i += 400) {
+          const batch = writeBatch(db);
+          ids.slice(i, i + 400).forEach((id) => batch.delete(doc(db, SESSIONS, id)));
+          await batch.commit();
+        }
+        toast('Видалено', 'ok');
+        load();
+      } catch (e) { toast(`Не вдалося видалити: ${e.message}`, 'err'); }
+    };
+    const load = async () => {
+      clear(body).append(spinner());
       if (!u) { clear(body).append(emptyState('lock', 'Увійдіть, щоб бачити результати')); return; }
       // лише фільтр за uid — без складеного індексу; сортування на клієнті
       const snap = await getDocs(query(collection(db, SESSIONS), where('uid', '==', u.uid)));
-      const rows = snap.docs.map((d) => d.data())
-        .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0)).slice(0, 50);
+      const all = snap.docs.map((d) => ({ ...d.data(), _id: d.id }));
+      const rows = all.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0)).slice(0, 50);
       clear(body);
       if (!rows.length) { body.append(emptyState('history', 'Ще немає виконаних вправ')); return; }
+      if (admin) body.append(h('button', { class: 'btn text', style: { color: '#C62828', marginBottom: '8px' }, onClick: () => remove(all.map((r) => r._id), `усі свої результати (${all.length})`) }, icon('delete_sweep'), 'Видалити всі мої результати'));
       rows.forEach((r) => {
         const d = r.createdAt?.toDate?.();
         const inT = (r.enduranceResults || []).filter((x) => x.inTarget).length;
@@ -324,9 +341,11 @@ function openMyResults() {
           icon(r.blocksCompleted >= r.blocksTotal ? 'check_circle' : 'timelapse'),
           h('div', { class: 'grow' }, h('div', { class: 't' }, r.exerciseTitle),
             h('div', { class: 's' }, [d ? d.toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '',
-              `блоків ${r.blocksCompleted}/${r.blocksTotal}`, (r.enduranceResults || []).length ? `видих у цілі ${inT}/${r.enduranceResults.length}` : ''].filter(Boolean).join(' · ')))));
+              `блоків ${r.blocksCompleted}/${r.blocksTotal}`, (r.enduranceResults || []).length ? `видих у цілі ${inT}/${r.enduranceResults.length}` : ''].filter(Boolean).join(' · '))),
+          admin ? h('button', { class: 'iconbtn', style: { color: '#F44336' }, title: 'Видалити', onClick: () => remove([r._id], 'цей результат') }, icon('delete')) : null));
       });
-    })().catch((e) => clear(body).append(emptyState('error_outline', 'Помилка завантаження', e.message)));
+    };
+    load().catch((e) => clear(body).append(emptyState('error_outline', 'Помилка завантаження', e.message)));
     return h('div', { class: 'page', style: { background: 'var(--bg)' } },
       appBar('Мої результати: дихання', { back: pop, small: true }),
       h('div', { class: 'body' }, body));
