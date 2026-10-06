@@ -10,6 +10,7 @@ import 'package:hunting_signals/screens/breath_gym_guided_screen.dart';
 import 'package:hunting_signals/screens/breath_gym_home_screen.dart';
 import 'package:hunting_signals/screens/breath_gym_stopwatch_screen.dart';
 import 'package:hunting_signals/services/breath_gym_engine.dart';
+import 'package:hunting_signals/services/breath_gym_prefs.dart';
 import 'package:hunting_signals/services/breath_gym_program.dart';
 
 /// Програма: огляд → (пауза 5 с з «Далі» → вправа) × N → підсумок.
@@ -104,11 +105,13 @@ class _BreathGymProgramScreenState extends State<BreathGymProgramScreen> with Wi
     if (e == null || _opening) return;
     _opening = true;
     setState(() => _left = null);
+    final settings = await BreathGymPrefs.exercise(e);
+    if (!mounted) return;
     final done = await Navigator.push<bool>(
       context,
       breathGymRoute(
         (_) => switch (e.mode) {
-          ExerciseMode.guided => BreathGymGuidedScreen(exercise: e, settings: e.defaults, allowRepeat: false),
+          ExerciseMode.guided => BreathGymGuidedScreen(exercise: e, settings: settings, allowRepeat: false),
           ExerciseMode.stopwatch => BreathGymStopwatchScreen(exercise: e),
           ExerciseMode.freeTimer => BreathGymFreeTimerScreen(exercise: e),
         },

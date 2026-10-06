@@ -7,6 +7,7 @@ import 'package:hunting_signals/models/breath_gym_models.dart';
 import 'package:hunting_signals/screens/breath_gym_exercise_screen.dart';
 import 'package:hunting_signals/screens/breath_gym_program_screen.dart';
 import 'package:hunting_signals/screens/breath_gym_progress_screen.dart';
+import 'package:hunting_signals/screens/breath_gym_settings_screen.dart';
 import 'package:hunting_signals/services/breath_gym_engine.dart';
 import 'package:hunting_signals/theme/hunting_theme.dart';
 
@@ -81,6 +82,11 @@ class _BreathGymTabState extends State<BreathGymTab> {
                 tooltip: BgStrings.introTitle,
                 icon: const Icon(Icons.info_outline),
                 onPressed: () => showBreathGymIntro(context),
+              ),
+              IconButton(
+                tooltip: BgStrings.settingsTitle,
+                icon: const Icon(Icons.settings_outlined),
+                onPressed: () => Navigator.push(context, breathGymRoute((_) => const BreathGymSettingsScreen())),
               ),
             ],
           ),

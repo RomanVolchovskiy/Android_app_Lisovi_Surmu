@@ -95,6 +95,30 @@ class BgStrings {
           : 'спроб'}';
   static String weekSummary(int exercises, int days) => '${exercisesCount(exercises)} · ${BgStrings.days(days)}';
 
+  // Налаштування
+  static const settingsTitle = 'Налаштування тренажера';
+  static const soundSection = 'Звук і вібрація';
+  static const metronome = 'Метроном і тони фаз';
+  static const metronomeHint = 'Клік на кожну долю, окремі тони вдиху й видиху';
+  static const volume = 'Гучність';
+  static const vibration = 'Вібрація на початку фази';
+  static const voice = 'Голосові підказки';
+  static const voiceHint = 'Вимовляти «Вдих», «Видих»… українською';
+  static const voiceUnavailable =
+      'На телефоні немає українського голосу. Його можна встановити в налаштуваннях '
+      'Android: «Синтез мовлення» → завантажити українську.';
+  static const voiceTest = 'Перевірити голос';
+  static const voiceTestPhrase = 'Вдих. Видих.';
+  static const dataSection = 'Дані';
+  static const resetExercises = 'Скинути налаштування вправ';
+  static const resetExercisesDone = 'Налаштування вправ повернуто до стандартних';
+  static const clearHistory = 'Очистити історію та рекорди';
+  static const clearHistoryBody = 'Усі спроби, рекорди й журнал тренувань на цьому телефоні буде видалено.';
+  static const clearHistoryDone = 'Історію очищено';
+  static const clear = 'Очистити';
+  static const resetToDefault = 'За замовчуванням';
+  static const savedHint = 'Налаштування запам\'ятовуються й діють і в програмах';
+
   // Таймер
   static const timeUp = 'Час вийшов';
   static const finishedEarly = 'Вправу виконано';
@@ -117,6 +141,15 @@ class BgStrings {
     PhaseType.hold => 'ПАУЗА',
     PhaseType.action => 'ІМПУЛЬС',
     PhaseType.rest => 'ВІДПОЧИНОК',
+  };
+
+  /// Для голосових підказок (великі літери синтезатор може читати по буквах).
+  static String phaseSpoken(PhaseType t) => switch (t) {
+    PhaseType.inhale => 'Вдих',
+    PhaseType.exhale => 'Видих',
+    PhaseType.hold => 'Пауза',
+    PhaseType.action => 'Імпульс',
+    PhaseType.rest => 'Відпочинок',
   };
 
   static String mode(ExerciseMode m) => switch (m) {

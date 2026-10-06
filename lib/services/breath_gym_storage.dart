@@ -89,6 +89,13 @@ class BreathGymStorage {
 
   static Future<List<BreathSessionLog>> sessions() => _read(_sessionsKey, BreathSessionLog.fromJson);
 
+  /// Видаляє всі спроби й журнал (кнопка в налаштуваннях).
+  static Future<void> clearAll() async {
+    final box = await _open();
+    await box.delete(_attemptsKey);
+    await box.delete(_sessionsKey);
+  }
+
   static Future<void> addSession(BreathSessionLog s) async {
     try {
       final box = await _open();

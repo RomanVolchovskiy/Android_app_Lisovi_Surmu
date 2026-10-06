@@ -84,6 +84,8 @@ dependencies:
 
   # Екран не гасне під час дихальних вправ
   wakelock_plus: ^1.5.2
+  # Голосові підказки дихального тренажера (українська, якщо є голос)
+  flutter_tts: ^4.2.5
 
 dev_dependencies:
   flutter_test:

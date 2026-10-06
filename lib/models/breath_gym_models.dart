@@ -137,6 +137,21 @@ class ExerciseSettings {
         syllable: syllable ?? this.syllable,
       );
 
+  Map<String, dynamic> toJson() => {'bpm': bpm, 'series': series, 'repeats': repeats, 'syllable': syllable};
+
+  /// Збережені налаштування поверх значень вправи; биті поля ігноруються.
+  static ExerciseSettings fromJson(Object? j, Exercise ex) {
+    final d = ex.defaults;
+    if (j is! Map) return d;
+    int? i(Object? v) => v is num ? v.round() : null;
+    return ExerciseSettings(
+      bpm: i(j['bpm']) ?? d.bpm,
+      series: i(j['series']) ?? d.series,
+      repeats: i(j['repeats']),
+      syllable: j['syllable'] is String ? j['syllable'] as String : d.syllable,
+    ).clampTo(ex);
+  }
+
   /// Обмежує значення діапазонами вправи (наприклад, після зміни каталогу).
   ExerciseSettings clampTo(Exercise ex) => ExerciseSettings(
         bpm: bpm.clamp(ex.bpmMin, ex.bpmMax),

@@ -8,6 +8,7 @@ import 'package:hunting_signals/screens/breath_gym_home_screen.dart';
 import 'package:hunting_signals/screens/breath_gym_free_timer_screen.dart';
 import 'package:hunting_signals/screens/breath_gym_stopwatch_screen.dart';
 import 'package:hunting_signals/services/breath_gym_engine.dart';
+import 'package:hunting_signals/services/breath_gym_prefs.dart';
 import 'package:hunting_signals/services/breath_gym_storage.dart';
 
 /// Картка вправи: опис, джерело, попередження, налаштування, «Почати».
@@ -30,6 +31,17 @@ class _BreathGymExerciseScreenState extends State<BreathGymExerciseScreen> {
   void initState() {
     super.initState();
     _loadRecord();
+    BreathGymPrefs.exercise(_e).then((s) {
+      if (mounted) setState(() => _s = s);
+    });
+  }
+
+  /// Зміна налаштувань — одразу зберігається (діє й у програмах).
+  void _set(ExerciseSettings s) {
+    // Повтори як у каталозі — не «власне» значення.
+    final norm = s.repeats == _e.repeats ? s.copyWith(clearRepeats: true) : s;
+    setState(() => _s = norm);
+    BreathGymPrefs.saveExercise(_e, norm);
   }
 
   Future<void> _loadRecord() async {
@@ -115,7 +127,7 @@ class _BreathGymExerciseScreenState extends State<BreathGymExerciseScreen> {
             divisions: _e.bpmMax - _e.bpmMin,
             label: BgStrings.bpm(_s.bpm),
             semanticFormatterCallback: (v) => BgStrings.bpm(v.round()),
-            onChanged: (v) => setState(() => _s = _s.copyWith(bpm: v.round())),
+            onChanged: (v) => _set(_s.copyWith(bpm: v.round())),
           ),
         ),
         SizedBox(width: 72, child: Text(BgStrings.bpm(_s.bpm), textAlign: TextAlign.end)),
@@ -127,7 +139,7 @@ class _BreathGymExerciseScreenState extends State<BreathGymExerciseScreen> {
         value: _s.series,
         min: _e.seriesMin,
         max: _e.seriesMax,
-        onChanged: (v) => setState(() => _s = _s.copyWith(series: v)),
+        onChanged: (v) => _set(_s.copyWith(series: v)),
       ));
     }
     if (_e.repeatsAdjustable) {
@@ -136,7 +148,7 @@ class _BreathGymExerciseScreenState extends State<BreathGymExerciseScreen> {
         value: _s.repeats ?? _e.repeats,
         min: 1,
         max: 20,
-        onChanged: (v) => setState(() => _s = _s.copyWith(repeats: v)),
+        onChanged: (v) => _set(_s.copyWith(repeats: v)),
       ));
     }
     if (_e.hasSyllable) {
@@ -151,16 +163,24 @@ class _BreathGymExerciseScreenState extends State<BreathGymExerciseScreen> {
                 ButtonSegment(value: 'ху', label: Text(BgStrings.syllableHu)),
               ],
               selected: {_s.syllable},
-              onSelectionChanged: (v) => setState(() => _s = _s.copyWith(syllable: v.first)),
+              onSelectionChanged: (v) => _set(_s.copyWith(syllable: v.first)),
             ),
           ),
         ]),
       ));
     }
     if (rows.isEmpty) return const [];
+    final custom = _s.toJson().toString() != _e.defaults.toJson().toString();
     return [
       const SizedBox(height: 20),
-      Text(BgStrings.settings, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+      Row(children: [
+        Expanded(
+          child: Text(BgStrings.settings, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+        ),
+        // Кнопка завжди на місці (неактивна без змін) — рядки не зсуваються під пальцем.
+        TextButton(onPressed: custom ? () => _set(_e.defaults) : null, child: const Text(BgStrings.resetToDefault)),
+      ]),
+      Text(BgStrings.savedHint, style: theme.textTheme.bodySmall),
       const SizedBox(height: 4),
       ...rows,
     ];
