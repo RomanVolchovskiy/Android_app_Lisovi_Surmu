@@ -63,14 +63,27 @@ class _BreathGymTabState extends State<BreathGymTab> {
     return ListView(
       padding: const EdgeInsets.only(top: 4, bottom: 24),
       children: [
-        Card(
-          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          child: ListTile(
-            leading: Icon(Icons.insights, color: Theme.of(context).colorScheme.primary),
-            title: const Text(BgStrings.progress, style: TextStyle(fontWeight: FontWeight.w600)),
-            subtitle: const Text(BgStrings.progressHint, style: TextStyle(fontSize: 12)),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(context, breathGymRoute((_) => const BreathGymProgressScreen())),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: IntrinsicHeight(
+            child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Expanded(
+                child: _NavCard(
+                  icon: Icons.insights,
+                  title: BgStrings.progress,
+                  subtitle: BgStrings.progressHint,
+                  onTap: () => Navigator.push(context, breathGymRoute((_) => const BreathGymProgressScreen())),
+                ),
+              ),
+              Expanded(
+                child: _NavCard(
+                  icon: Icons.settings_outlined,
+                  title: BgStrings.settingsShort,
+                  subtitle: BgStrings.settingsHint,
+                  onTap: () => Navigator.push(context, breathGymRoute((_) => const BreathGymSettingsScreen())),
+                ),
+              ),
+            ]),
           ),
         ),
         Padding(
@@ -82,11 +95,6 @@ class _BreathGymTabState extends State<BreathGymTab> {
                 tooltip: BgStrings.introTitle,
                 icon: const Icon(Icons.info_outline),
                 onPressed: () => showBreathGymIntro(context),
-              ),
-              IconButton(
-                tooltip: BgStrings.settingsTitle,
-                icon: const Icon(Icons.settings_outlined),
-                onPressed: () => Navigator.push(context, breathGymRoute((_) => const BreathGymSettingsScreen())),
               ),
             ],
           ),
@@ -126,6 +134,38 @@ class _BlockHeader extends StatelessWidget {
                   fontSize: 14, fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.primary)),
         ),
       );
+}
+
+/// Картка-вхід угорі вкладки: «Прогрес», «Налаштування».
+class _NavCard extends StatelessWidget {
+  final IconData icon;
+  final String title, subtitle;
+  final VoidCallback onTap;
+  const _NavCard({required this.icon, required this.title, required this.subtitle, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      margin: const EdgeInsets.all(4),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Icon(icon, color: scheme.primary),
+              const SizedBox(width: 8),
+              Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16))),
+            ]),
+            const SizedBox(height: 4),
+            Text(subtitle, style: const TextStyle(fontSize: 12)),
+          ]),
+        ),
+      ),
+    );
+  }
 }
 
 class _ProgramCard extends StatelessWidget {

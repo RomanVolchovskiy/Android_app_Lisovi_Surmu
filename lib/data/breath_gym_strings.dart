@@ -71,7 +71,7 @@ class BgStrings {
 
   // Прогрес
   static const progress = 'Прогрес';
-  static const progressHint = 'Тиждень, серія днів, рекорди видиху, історія';
+  static const progressHint = 'Тиждень, серія днів, рекорди, історія';
   static const thisWeek = 'Цього тижня';
   static const streak = 'Серія';
   static const bestStreak = 'Найдовша серія';
@@ -97,6 +97,8 @@ class BgStrings {
 
   // Налаштування
   static const settingsTitle = 'Налаштування тренажера';
+  static const settingsShort = 'Налаштування';
+  static const settingsHint = 'Звук, вібрація, голос, скидання даних';
   static const soundSection = 'Звук і вібрація';
   static const metronome = 'Метроном і тони фаз';
   static const metronomeHint = 'Клік на кожну долю, окремі тони вдиху й видиху';
