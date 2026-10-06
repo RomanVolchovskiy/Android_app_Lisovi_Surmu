@@ -5,6 +5,7 @@ import 'package:hunting_signals/data/breath_gym_catalog.dart';
 import 'package:hunting_signals/data/breath_gym_strings.dart';
 import 'package:hunting_signals/models/breath_gym_models.dart';
 import 'package:hunting_signals/screens/breath_gym_exercise_screen.dart';
+import 'package:hunting_signals/screens/breath_gym_program_screen.dart';
 import 'package:hunting_signals/services/breath_gym_engine.dart';
 import 'package:hunting_signals/theme/hunting_theme.dart';
 
@@ -56,6 +57,7 @@ class _BreathGymTabState extends State<BreathGymTab> {
       children.add(_BlockHeader(number: block.key, title: block.value));
       children.addAll(list.map((e) => _ExerciseTile(exercise: e)));
     }
+    final heading = Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold);
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
       children: [
@@ -63,10 +65,7 @@ class _BreathGymTabState extends State<BreathGymTab> {
           padding: const EdgeInsets.fromLTRB(16, 4, 8, 0),
           child: Row(
             children: [
-              Expanded(
-                child: Text(BgStrings.exercises,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-              ),
+              Expanded(child: Semantics(header: true, child: Text(BgStrings.programs, style: heading))),
               IconButton(
                 tooltip: BgStrings.introTitle,
                 icon: const Icon(Icons.info_outline),
@@ -74,6 +73,11 @@ class _BreathGymTabState extends State<BreathGymTab> {
               ),
             ],
           ),
+        ),
+        ...breathGymPrograms.map((p) => _ProgramCard(program: p)),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: Semantics(header: true, child: Text(BgStrings.exercises, style: heading)),
         ),
         ...children,
       ],
@@ -105,6 +109,30 @@ class _BlockHeader extends StatelessWidget {
                   fontSize: 14, fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.primary)),
         ),
       );
+}
+
+class _ProgramCard extends StatelessWidget {
+  final Program program;
+  const _ProgramCard({required this.program});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final p = program;
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      color: scheme.primaryContainer,
+      child: ListTile(
+        leading: Icon(Icons.playlist_play, color: scheme.onPrimaryContainer, size: 32),
+        title: Text(p.title, style: TextStyle(fontWeight: FontWeight.bold, color: scheme.onPrimaryContainer)),
+        subtitle: Text('${p.durationLabel} · ${BgStrings.exercisesCount(p.exerciseIds.length)}\n${p.description}',
+            style: TextStyle(fontSize: 12, color: scheme.onPrimaryContainer)),
+        isThreeLine: true,
+        trailing: Icon(Icons.chevron_right, color: scheme.onPrimaryContainer),
+        onTap: () => Navigator.push(context, breathGymRoute((_) => BreathGymProgramScreen(program: p))),
+      ),
+    );
+  }
 }
 
 class _ExerciseTile extends StatelessWidget {

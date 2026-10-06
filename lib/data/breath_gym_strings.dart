@@ -46,6 +46,24 @@ class BgStrings {
   static const inhaleDeep = 'Глибокий безшумний вдих ротом';
   static const exhaleEvenly = 'Видихай рівно. Натисни «Стоп», коли закінчиться повітря';
 
+  // Програми
+  static const startProgram = 'Почати програму';
+  static const next = 'Далі';
+  static const upNext = 'Наступна вправа';
+  static const skipExercise = 'Пропустити вправу';
+  static const endProgram = 'Завершити програму';
+  static const endProgramTitle = 'Завершити програму?';
+  static const endProgramBody = 'Решту вправ буде пропущено.';
+  static const programDone = 'Програму завершено';
+  static const statusDone = 'виконано';
+  static const statusStopped = 'зупинено';
+  static const statusSkipped = 'пропущено';
+  static String autoStartIn(int s) => 'Автостарт через $s с';
+  static String exerciseOf(int i, int n) => 'Вправа $i з $n';
+  static String exercisesCount(int n) => '$n ${n % 10 == 1 && n % 100 != 11 ? 'вправа' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'вправи' : 'вправ'}';
+  static String summary(int done, int stopped, int skipped) =>
+      ['Виконано: $done', if (stopped > 0) 'зупинено: $stopped', 'пропущено: $skipped'].join(' · ');
+
   // Таймер
   static const timeUp = 'Час вийшов';
   static const finishedEarly = 'Вправу виконано';

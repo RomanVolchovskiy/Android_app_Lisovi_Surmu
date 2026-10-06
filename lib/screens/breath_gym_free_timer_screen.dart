@@ -56,108 +56,129 @@ class _BreathGymFreeTimerScreenState extends State<BreathGymFreeTimerScreen>
   void _logWhenDone() {
     if (_timer.status != TimerStatus.done || _logged) return;
     _logged = true;
-    BreathGymStorage.addSession(BreathSessionLog(
-        widget.exercise.id, _openedAt, (_timer.elapsedUs / 1e6).round(), true));
+    BreathGymStorage.addSession(
+      BreathSessionLog(widget.exercise.id, _openedAt, (_timer.elapsedUs / 1e6).round(), true),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final e = widget.exercise;
-    return Scaffold(
-      appBar: AppBar(title: Text(e.title)),
-      body: SafeArea(
-        child: ListenableBuilder(
-          listenable: _timer,
-          builder: (context, _) {
-            final status = _timer.status;
-            final done = status == TimerStatus.done;
-            final running = status == TimerStatus.running;
-            final color = BreathGymPalette.of(context).exhale;
-            return ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                Text(e.description, style: theme.textTheme.bodyLarge),
-                if (e.needsItem.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Row(children: [
-                      const Icon(Icons.backpack_outlined, size: 18),
-                      const SizedBox(width: 6),
-                      Expanded(child: Text('${BgStrings.needs}: ${e.needsItem}')),
-                    ]),
-                  ),
-                if (e.warning.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Row(children: [
-                      Icon(Icons.warning_amber_rounded, size: 18, color: theme.colorScheme.error),
-                      const SizedBox(width: 6),
-                      Expanded(child: Text(e.warning)),
-                    ]),
-                  ),
-                const SizedBox(height: 32),
-                Center(
-                  child: Semantics(
-                    label: done ? BgStrings.finishedEarly : BgStrings.remaining(_timer.remainingSeconds),
-                    excludeSemantics: true,
-                    child: SizedBox(
-                      width: 240,
-                      height: 240,
-                      child: Stack(fit: StackFit.expand, children: [
-                        CircularProgressIndicator(
-                          value: 1 - _timer.progress,
-                          strokeWidth: 12,
-                          color: color,
-                          backgroundColor: color.withValues(alpha: 0.2),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) Navigator.pop(context, _timer.status == TimerStatus.done);
+      },
+      child: Scaffold(
+        appBar: AppBar(title: Text(e.title)),
+        body: SafeArea(
+          child: ListenableBuilder(
+            listenable: _timer,
+            builder: (context, _) {
+              final status = _timer.status;
+              final done = status == TimerStatus.done;
+              final running = status == TimerStatus.running;
+              final color = BreathGymPalette.of(context).exhale;
+              return ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  Text(e.description, style: theme.textTheme.bodyLarge),
+                  if (e.needsItem.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.backpack_outlined, size: 18),
+                          const SizedBox(width: 6),
+                          Expanded(child: Text('${BgStrings.needs}: ${e.needsItem}')),
+                        ],
+                      ),
+                    ),
+                  if (e.warning.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Row(
+                        children: [
+                          Icon(Icons.warning_amber_rounded, size: 18, color: theme.colorScheme.error),
+                          const SizedBox(width: 6),
+                          Expanded(child: Text(e.warning)),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 32),
+                  Center(
+                    child: Semantics(
+                      label: done ? BgStrings.finishedEarly : BgStrings.remaining(_timer.remainingSeconds),
+                      excludeSemantics: true,
+                      child: SizedBox(
+                        width: 240,
+                        height: 240,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            CircularProgressIndicator(
+                              value: 1 - _timer.progress,
+                              strokeWidth: 12,
+                              color: color,
+                              backgroundColor: color.withValues(alpha: 0.2),
+                            ),
+                            Center(
+                              child: done
+                                  ? Icon(Icons.check_circle_outline, size: 96, color: color)
+                                  : Text(
+                                      BgStrings.clock(_timer.remainingSeconds),
+                                      style: const TextStyle(
+                                        fontSize: 56,
+                                        fontWeight: FontWeight.bold,
+                                        fontFeatures: [FontFeature.tabularFigures()],
+                                      ),
+                                    ),
+                            ),
+                          ],
                         ),
-                        Center(
-                          child: done
-                              ? Icon(Icons.check_circle_outline, size: 96, color: color)
-                              : Text(BgStrings.clock(_timer.remainingSeconds),
-                                  style: const TextStyle(
-                                      fontSize: 56,
-                                      fontWeight: FontWeight.bold,
-                                      fontFeatures: [FontFeature.tabularFigures()])),
-                        ),
-                      ]),
+                      ),
                     ),
                   ),
-                ),
-                if (done)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16),
-                    child: Text(_timer.timeUp ? BgStrings.timeUp : BgStrings.finishedEarly,
-                        textAlign: TextAlign.center, style: theme.textTheme.headlineSmall),
-                  ),
-                const SizedBox(height: 32),
-                if (!done)
-                  FilledButton.icon(
-                    style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
-                    onPressed: _timer.toggle,
-                    icon: Icon(running ? Icons.pause : Icons.play_arrow),
-                    label: Text(
+                  if (done)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: Text(
+                        _timer.timeUp ? BgStrings.timeUp : BgStrings.finishedEarly,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.headlineSmall,
+                      ),
+                    ),
+                  const SizedBox(height: 32),
+                  if (!done)
+                    FilledButton.icon(
+                      style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+                      onPressed: _timer.toggle,
+                      icon: Icon(running ? Icons.pause : Icons.play_arrow),
+                      label: Text(
                         running
                             ? BgStrings.pause
                             : status == TimerStatus.paused
-                                ? BgStrings.resume
-                                : BgStrings.start,
-                        style: const TextStyle(fontSize: 18)),
+                            ? BgStrings.resume
+                            : BgStrings.start,
+                        style: const TextStyle(fontSize: 18),
+                      ),
+                    ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+                    onPressed: done
+                        ? () => Navigator.pop(context, true)
+                        : status == TimerStatus.ready
+                        ? null
+                        : _timer.finish,
+                    icon: const Icon(Icons.done),
+                    label: const Text(BgStrings.done, style: TextStyle(fontSize: 18)),
                   ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
-                  onPressed: done
-                      ? () => Navigator.pop(context, true)
-                      : status == TimerStatus.ready
-                          ? null
-                          : _timer.finish,
-                  icon: const Icon(Icons.done),
-                  label: const Text(BgStrings.done, style: TextStyle(fontSize: 18)),
-                ),
-              ],
-            );
-          },
+                ],
+              );
+            },
+          ),
         ),
       ),
     );

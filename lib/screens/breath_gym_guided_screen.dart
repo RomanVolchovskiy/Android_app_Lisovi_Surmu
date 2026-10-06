@@ -20,7 +20,10 @@ const _minL = 0.45, _midL = 0.68, _maxL = 1.0;
 class BreathGymGuidedScreen extends StatefulWidget {
   final Exercise exercise;
   final ExerciseSettings settings;
-  const BreathGymGuidedScreen({super.key, required this.exercise, required this.settings});
+
+  /// «Ще раз» замінює маршрут і повертає null — у програмі вимкнено.
+  final bool allowRepeat;
+  const BreathGymGuidedScreen({super.key, required this.exercise, required this.settings, this.allowRepeat = true});
 
   @override
   State<BreathGymGuidedScreen> createState() => _BreathGymGuidedScreenState();
@@ -232,9 +235,14 @@ class _BreathGymGuidedScreenState extends State<BreathGymGuidedScreen>
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: _engine.status == EngineStatus.finished,
+      canPop: false,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _confirmStop();
+        if (didPop) return;
+        if (_engine.status == EngineStatus.finished) {
+          Navigator.pop(context, _engine.completed);
+        } else {
+          _confirmStop();
+        }
       },
       child: Scaffold(
         appBar: AppBar(title: Text(widget.exercise.title)),
@@ -390,15 +398,17 @@ class _BreathGymGuidedScreenState extends State<BreathGymGuidedScreen>
           Text(BgStrings.duration(sec), style: theme.textTheme.titleMedium),
           const SizedBox(height: 24),
           Row(mainAxisSize: MainAxisSize.min, children: [
-            OutlinedButton.icon(
-              onPressed: () => Navigator.pushReplacement(
-                  context,
-                  breathGymRoute(
-                      (_) => BreathGymGuidedScreen(exercise: widget.exercise, settings: widget.settings))),
-              icon: const Icon(Icons.replay),
-              label: const Text(BgStrings.again),
-            ),
-            const SizedBox(width: 12),
+            if (widget.allowRepeat) ...[
+              OutlinedButton.icon(
+                onPressed: () => Navigator.pushReplacement(
+                    context,
+                    breathGymRoute(
+                        (_) => BreathGymGuidedScreen(exercise: widget.exercise, settings: widget.settings))),
+                icon: const Icon(Icons.replay),
+                label: const Text(BgStrings.again),
+              ),
+              const SizedBox(width: 12),
+            ],
             FilledButton.icon(
               onPressed: () => Navigator.pop(context, _engine.completed),
               icon: const Icon(Icons.done),

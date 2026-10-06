@@ -102,15 +102,17 @@ class _BreathGymStopwatchScreenState extends State<BreathGymStopwatchScreen>
   Widget build(BuildContext context) {
     final running = _session.phase != StopwatchPhase.ready && _session.phase != StopwatchPhase.done;
     return PopScope(
-      canPop: !running,
+      canPop: false,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _session.cancel();
+        if (didPop) return;
+        if (running) {
+          _session.cancel(); // перше «Назад» лише скасовує спробу
+        } else {
+          Navigator.pop(context, _attemptsThisRun > 0);
+        }
       },
       child: Scaffold(
-        appBar: AppBar(
-          title: Text(widget.exercise.title),
-          leading: BackButton(onPressed: () => Navigator.maybePop(context, _attemptsThisRun > 0)),
-        ),
+        appBar: AppBar(title: Text(widget.exercise.title)),
         body: SafeArea(
           child: ListenableBuilder(
             listenable: _session,
