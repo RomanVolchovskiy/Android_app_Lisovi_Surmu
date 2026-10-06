@@ -31,8 +31,36 @@ class BgStrings {
   static const stopTitle = 'Зупинити вправу?';
   static const stopBody = 'Прогрес цієї спроби не буде враховано.';
   static const cancel = 'Скасувати';
-  static const notYet = 'Цей режим з\'явиться в наступному оновленні';
   static const pausedHint = 'Пауза — натисни «Продовжити»';
+
+  // Секундомір
+  static const record = 'Рекорд';
+  static const noRecord = 'Рекорду ще немає';
+  static const result = 'Результат';
+  static const newRecord = 'Новий рекорд!';
+  static const firstResult = 'Перший результат';
+  static const startAttempt = 'Почати спробу';
+  static const anotherAttempt = 'Ще спроба';
+  static const lastAttempts = 'Останні спроби';
+  static const inhaleSoon = 'Зараз буде вдих ротом';
+  static const inhaleDeep = 'Глибокий безшумний вдих ротом';
+  static const exhaleEvenly = 'Видихай рівно. Натисни «Стоп», коли закінчиться повітря';
+
+  // Таймер
+  static const timeUp = 'Час вийшов';
+  static const finishedEarly = 'Вправу виконано';
+
+  /// «32,4».
+  static String secNumber(double s) => s.toStringAsFixed(1).replaceAll('.', ',');
+
+  /// «32,4 с».
+  static String sec(double s) => '${secNumber(s)} с';
+
+  /// «06.10 07:41».
+  static String dateTime(DateTime t) {
+    String two(int v) => v.toString().padLeft(2, '0');
+    return '${two(t.day)}.${two(t.month)} ${two(t.hour)}:${two(t.minute)}';
+  }
 
   static String phase(PhaseType t) => switch (t) {
         PhaseType.inhale => 'ВДИХ',

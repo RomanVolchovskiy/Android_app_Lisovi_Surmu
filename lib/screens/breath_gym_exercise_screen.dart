@@ -5,7 +5,10 @@ import 'package:hunting_signals/data/breath_gym_strings.dart';
 import 'package:hunting_signals/models/breath_gym_models.dart';
 import 'package:hunting_signals/screens/breath_gym_guided_screen.dart';
 import 'package:hunting_signals/screens/breath_gym_home_screen.dart';
+import 'package:hunting_signals/screens/breath_gym_free_timer_screen.dart';
+import 'package:hunting_signals/screens/breath_gym_stopwatch_screen.dart';
 import 'package:hunting_signals/services/breath_gym_engine.dart';
+import 'package:hunting_signals/services/breath_gym_storage.dart';
 
 /// Картка вправи: опис, джерело, попередження, налаштування, «Почати».
 class BreathGymExerciseScreen extends StatefulWidget {
@@ -21,13 +24,29 @@ class _BreathGymExerciseScreenState extends State<BreathGymExerciseScreen> {
 
   Exercise get _e => widget.exercise;
 
-  void _start() {
-    switch (_e.mode) {
-      case ExerciseMode.guided:
-        Navigator.push(context, breathGymRoute((_) => BreathGymGuidedScreen(exercise: _e, settings: _s)));
-      case ExerciseMode.stopwatch || ExerciseMode.freeTimer:
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(BgStrings.notYet)));
-    }
+  double _record = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecord();
+  }
+
+  Future<void> _loadRecord() async {
+    if (_e.mode != ExerciseMode.stopwatch) return;
+    final r = await BreathGymStorage.record(_e.id);
+    if (mounted) setState(() => _record = r);
+  }
+
+  Future<void> _start() async {
+    await Navigator.push(
+        context,
+        breathGymRoute((_) => switch (_e.mode) {
+              ExerciseMode.guided => BreathGymGuidedScreen(exercise: _e, settings: _s),
+              ExerciseMode.stopwatch => BreathGymStopwatchScreen(exercise: _e),
+              ExerciseMode.freeTimer => BreathGymFreeTimerScreen(exercise: _e),
+            }));
+    _loadRecord();
   }
 
   @override
@@ -43,6 +62,10 @@ class _BreathGymExerciseScreenState extends State<BreathGymExerciseScreen> {
             Chip(avatar: Icon(breathGymModeIcon(_e.mode), size: 18), label: Text(BgStrings.mode(_e.mode))),
             Chip(avatar: const Icon(Icons.schedule, size: 18), label: Text(BgStrings.approx(estimateSeconds(_e, _s)))),
             Chip(label: Text('${BgStrings.romans[_e.block - 1]}. ${breathGymBlocks[_e.block]}')),
+            if (_record > 0)
+              Chip(
+                  avatar: const Icon(Icons.emoji_events_outlined, size: 18),
+                  label: Text('${BgStrings.record}: ${BgStrings.sec(_record)}')),
           ]),
           const SizedBox(height: 12),
           Text(_e.description, style: theme.textTheme.bodyLarge),

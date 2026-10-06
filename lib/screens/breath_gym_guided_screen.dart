@@ -10,6 +10,7 @@ import 'package:hunting_signals/models/breath_gym_models.dart';
 import 'package:hunting_signals/screens/breath_gym_home_screen.dart';
 import 'package:hunting_signals/services/breath_gym_engine.dart';
 import 'package:hunting_signals/services/breath_gym_sound.dart';
+import 'package:hunting_signals/services/breath_gym_storage.dart';
 import 'package:hunting_signals/theme/hunting_theme.dart';
 
 const _minL = 0.45, _midL = 0.68, _maxL = 1.0;
@@ -51,8 +52,12 @@ class _BreathGymGuidedScreenState extends State<BreathGymGuidedScreen>
     _engine
       ..onPhaseStart = _sound.phaseStarted
       ..onBeat = _sound.beat
-      ..onFinished = (_) {
+      ..onFinished = (completed) {
         _beatTimer?.cancel();
+        if (completed) {
+          BreathGymStorage.addSession(BreathSessionLog(
+              widget.exercise.id, DateTime.now(), (_engine.elapsedUs / 1e6).round(), true));
+        }
         if (mounted) setState(() {});
       };
     _ticker = createTicker((_) => _engine.tick())..start();

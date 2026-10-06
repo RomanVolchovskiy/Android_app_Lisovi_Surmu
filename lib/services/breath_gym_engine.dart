@@ -298,3 +298,174 @@ class BreathEngine extends ChangeNotifier {
     notifyListeners();
   }
 }
+
+enum StopwatchPhase { ready, countdown, inhale, exhale, done }
+
+/// Спроба STOPWATCH: відлік → вдих → секундомір видиху → «Стоп».
+class StopwatchSession extends ChangeNotifier {
+  StopwatchSession({BreathClock? clock, this.countdownSec = 3, this.inhaleSec = 3})
+      : _clock = clock ?? MonotonicClock();
+
+  final BreathClock _clock;
+  final int countdownSec;
+  final int inhaleSec;
+
+  /// Нова фаза спроби.
+  void Function(StopwatchPhase phase)? onPhase;
+
+  /// Секунда відліку: 3, 2, 1.
+  void Function(int secondsLeft)? onCountdown;
+
+  StopwatchPhase _phase = StopwatchPhase.ready;
+  StopwatchPhase get phase => _phase;
+  int _phaseStartUs = 0;
+  int _lastCount = 0;
+
+  /// Результат останньої спроби, с.
+  double result = 0;
+
+  int get _inPhaseUs => _clock.nowUs - _phaseStartUs;
+
+  /// Скільки цілих секунд лишилось у відліку чи на вдиху (3, 2, 1).
+  int get secondsLeft {
+    final total = switch (_phase) {
+      StopwatchPhase.countdown => countdownSec,
+      StopwatchPhase.inhale => inhaleSec,
+      _ => 0,
+    };
+    final left = total - _inPhaseUs / 1e6;
+    return left <= 0 ? 0 : left.ceil();
+  }
+
+  /// Частка вдиху 0..1 (для кола).
+  double get inhaleProgress =>
+      _phase == StopwatchPhase.inhale ? (_inPhaseUs / (inhaleSec * 1e6)).clamp(0.0, 1.0) : 0;
+
+  /// Поточний час видиху (або результат після «Стоп»), с.
+  double get exhaleSeconds => switch (_phase) {
+        StopwatchPhase.exhale => _inPhaseUs / 1e6,
+        StopwatchPhase.done => result,
+        _ => 0,
+      };
+
+  void start() {
+    if (_phase != StopwatchPhase.ready && _phase != StopwatchPhase.done) return;
+    result = 0;
+    _enter(countdownSec > 0 ? StopwatchPhase.countdown : StopwatchPhase.inhale);
+    if (_phase == StopwatchPhase.countdown) {
+      _lastCount = countdownSec;
+      onCountdown?.call(countdownSec);
+    }
+  }
+
+  /// «Стоп» на видиху фіксує результат; раніше — скасовує спробу.
+  void stop() {
+    if (_phase == StopwatchPhase.exhale) {
+      result = _inPhaseUs / 1e6;
+      _enter(StopwatchPhase.done);
+    } else if (_phase == StopwatchPhase.countdown || _phase == StopwatchPhase.inhale) {
+      cancel();
+    }
+  }
+
+  /// Скасування без результату (наприклад, застосунок згорнули).
+  void cancel() {
+    if (_phase == StopwatchPhase.ready) return;
+    result = 0;
+    _enter(StopwatchPhase.ready);
+  }
+
+  void tick() {
+    switch (_phase) {
+      case StopwatchPhase.countdown:
+        if (_inPhaseUs >= countdownSec * 1000000) {
+          _enter(StopwatchPhase.inhale, at: _phaseStartUs + countdownSec * 1000000);
+          tick();
+          return;
+        }
+        final left = secondsLeft;
+        if (left != _lastCount) {
+          _lastCount = left;
+          onCountdown?.call(left);
+        }
+      case StopwatchPhase.inhale:
+        if (_inPhaseUs >= inhaleSec * 1000000) {
+          _enter(StopwatchPhase.exhale, at: _phaseStartUs + inhaleSec * 1000000);
+          return;
+        }
+      case StopwatchPhase.ready || StopwatchPhase.exhale || StopwatchPhase.done:
+        break;
+    }
+    notifyListeners();
+  }
+
+  /// [at] — точний момент межі фази, щоб запізнілий кадр не з'їдав час.
+  void _enter(StopwatchPhase p, {int? at}) {
+    _phase = p;
+    _phaseStartUs = at ?? _clock.nowUs;
+    onPhase?.call(p);
+    notifyListeners();
+  }
+}
+
+enum TimerStatus { ready, running, paused, done }
+
+/// FREE_TIMER: зворотний відлік з паузою; «Готово» — у будь-який момент.
+class FreeTimerSession extends ChangeNotifier {
+  FreeTimerSession(this.totalSeconds, {BreathClock? clock}) : _clock = clock ?? MonotonicClock();
+
+  final int totalSeconds;
+  final BreathClock _clock;
+  void Function()? onTimeUp;
+
+  TimerStatus _status = TimerStatus.ready;
+  TimerStatus get status => _status;
+  int _baseUs = 0, _resumedAtUs = 0;
+
+  /// Час вичерпано (а не натиснуто «Готово» раніше).
+  bool timeUp = false;
+
+  int get totalUs => totalSeconds * 1000000;
+  int get elapsedUs {
+    final e = _status == TimerStatus.running ? _baseUs + _clock.nowUs - _resumedAtUs : _baseUs;
+    return e > totalUs ? totalUs : e;
+  }
+
+  int get remainingSeconds => ((totalUs - elapsedUs) / 1e6).ceil();
+  double get progress => totalUs == 0 ? 1 : elapsedUs / totalUs;
+
+  void start() {
+    if (_status == TimerStatus.ready || _status == TimerStatus.paused) {
+      _resumedAtUs = _clock.nowUs;
+      _status = TimerStatus.running;
+      notifyListeners();
+    }
+  }
+
+  void pause() {
+    if (_status != TimerStatus.running) return;
+    _baseUs = elapsedUs;
+    _status = TimerStatus.paused;
+    notifyListeners();
+  }
+
+  void toggle() => _status == TimerStatus.running ? pause() : start();
+
+  void finish() {
+    if (_status == TimerStatus.done) return;
+    _baseUs = elapsedUs;
+    _status = TimerStatus.done;
+    notifyListeners();
+  }
+
+  void tick() {
+    if (_status != TimerStatus.running) return;
+    if (elapsedUs >= totalUs) {
+      _baseUs = totalUs;
+      timeUp = true;
+      _status = TimerStatus.done;
+      onTimeUp?.call();
+    }
+    notifyListeners();
+  }
+}

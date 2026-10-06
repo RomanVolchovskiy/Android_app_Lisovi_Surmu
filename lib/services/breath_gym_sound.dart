@@ -42,6 +42,26 @@ class BreathGymSound {
         volume: step.type == PhaseType.action ? 1.0 : 0.7);
   }
 
+  /// Сигнал початку вдиху чи видиху (секундомір) з вібрацією.
+  void cue(PhaseType type) {
+    if (vibration) HapticFeedback.mediumImpact();
+    if (!metronome) return;
+    switch (type) {
+      case PhaseType.inhale:
+        _synth.play(_inhaleNote, volume: 0.8);
+      case PhaseType.exhale:
+        _synth.play(_exhaleNote, volume: 0.8);
+      default:
+        _synth.click(HornSynth.clickAccent);
+    }
+  }
+
+  /// Кінець таймера.
+  void timeUp() {
+    if (vibration) HapticFeedback.heavyImpact();
+    if (metronome) _synth.play(4); // СОЛЬ2
+  }
+
   /// Відлік перед стартом.
   void countdown(bool last) {
     if (metronome) _synth.click(last ? HornSynth.clickAccent : HornSynth.clickBeat);
