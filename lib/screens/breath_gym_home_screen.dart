@@ -6,6 +6,7 @@ import 'package:hunting_signals/data/breath_gym_strings.dart';
 import 'package:hunting_signals/models/breath_gym_models.dart';
 import 'package:hunting_signals/screens/breath_gym_exercise_screen.dart';
 import 'package:hunting_signals/screens/breath_gym_program_screen.dart';
+import 'package:hunting_signals/screens/breath_gym_progress_screen.dart';
 import 'package:hunting_signals/services/breath_gym_engine.dart';
 import 'package:hunting_signals/theme/hunting_theme.dart';
 
@@ -59,10 +60,20 @@ class _BreathGymTabState extends State<BreathGymTab> {
     }
     final heading = Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold);
     return ListView(
-      padding: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.only(top: 4, bottom: 24),
       children: [
+        Card(
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: ListTile(
+            leading: Icon(Icons.insights, color: Theme.of(context).colorScheme.primary),
+            title: const Text(BgStrings.progress, style: TextStyle(fontWeight: FontWeight.w600)),
+            subtitle: const Text(BgStrings.progressHint, style: TextStyle(fontSize: 12)),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.push(context, breathGymRoute((_) => const BreathGymProgressScreen())),
+          ),
+        ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 8, 0),
+          padding: const EdgeInsets.fromLTRB(16, 8, 8, 0),
           child: Row(
             children: [
               Expanded(child: Semantics(header: true, child: Text(BgStrings.programs, style: heading))),

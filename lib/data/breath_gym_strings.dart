@@ -60,9 +60,40 @@ class BgStrings {
   static const statusSkipped = 'пропущено';
   static String autoStartIn(int s) => 'Автостарт через $s с';
   static String exerciseOf(int i, int n) => 'Вправа $i з $n';
-  static String exercisesCount(int n) => '$n ${n % 10 == 1 && n % 100 != 11 ? 'вправа' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'вправи' : 'вправ'}';
+  static String exercisesCount(int n) =>
+      '$n ${n % 10 == 1 && n % 100 != 11
+          ? 'вправа'
+          : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14)
+          ? 'вправи'
+          : 'вправ'}';
   static String summary(int done, int stopped, int skipped) =>
       ['Виконано: $done', if (stopped > 0) 'зупинено: $stopped', 'пропущено: $skipped'].join(' · ');
+
+  // Прогрес
+  static const progress = 'Прогрес';
+  static const progressHint = 'Тиждень, серія днів, рекорди видиху, історія';
+  static const thisWeek = 'Цього тижня';
+  static const streak = 'Серія';
+  static const bestStreak = 'Найдовша серія';
+  static const records = 'Рекорди видиху';
+  static const noAttempts = 'Ще немає спроб — зроби першу на картці вправи';
+  static const history = 'Історія';
+  static const noHistory = 'Тут з\'являться виконані вправи';
+  static const tapPoint = 'Торкнися точки, щоб побачити спробу';
+  static const weekdays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
+  static String days(int n) =>
+      '$n ${n % 10 == 1 && n % 100 != 11
+          ? 'день'
+          : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14)
+          ? 'дні'
+          : 'днів'}';
+  static String attemptsCount(int n) =>
+      '$n ${n % 10 == 1 && n % 100 != 11
+          ? 'спроба'
+          : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14)
+          ? 'спроби'
+          : 'спроб'}';
+  static String weekSummary(int exercises, int days) => '${exercisesCount(exercises)} · ${BgStrings.days(days)}';
 
   // Таймер
   static const timeUp = 'Час вийшов';
@@ -81,18 +112,18 @@ class BgStrings {
   }
 
   static String phase(PhaseType t) => switch (t) {
-        PhaseType.inhale => 'ВДИХ',
-        PhaseType.exhale => 'ВИДИХ',
-        PhaseType.hold => 'ПАУЗА',
-        PhaseType.action => 'ІМПУЛЬС',
-        PhaseType.rest => 'ВІДПОЧИНОК',
-      };
+    PhaseType.inhale => 'ВДИХ',
+    PhaseType.exhale => 'ВИДИХ',
+    PhaseType.hold => 'ПАУЗА',
+    PhaseType.action => 'ІМПУЛЬС',
+    PhaseType.rest => 'ВІДПОЧИНОК',
+  };
 
   static String mode(ExerciseMode m) => switch (m) {
-        ExerciseMode.guided => 'Під метроном',
-        ExerciseMode.stopwatch => 'Секундомір',
-        ExerciseMode.freeTimer => 'Таймер',
-      };
+    ExerciseMode.guided => 'Під метроном',
+    ExerciseMode.stopwatch => 'Секундомір',
+    ExerciseMode.freeTimer => 'Таймер',
+  };
 
   static String beatOf(int beat, int beats) => 'Доля $beat / $beats';
   static String repeatOf(int r, int n) => 'Повтор $r / $n';
@@ -104,9 +135,7 @@ class BgStrings {
   /// «≈ 1 хв 20 с» / «≈ 45 с».
   static String approx(int sec) => '≈ ${duration(sec)}';
 
-  static String duration(int sec) => sec >= 60
-      ? '${sec ~/ 60} хв${sec % 60 > 0 ? ' ${sec % 60} с' : ''}'
-      : '$sec с';
+  static String duration(int sec) => sec >= 60 ? '${sec ~/ 60} хв${sec % 60 > 0 ? ' ${sec % 60} с' : ''}' : '$sec с';
 
   /// «1:05».
   static String clock(int sec) => '${sec ~/ 60}:${(sec % 60).toString().padLeft(2, '0')}';
