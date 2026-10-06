@@ -82,6 +82,9 @@ dependencies:
   firebase_storage: ^12.0.0
   firebase_auth: ^5.7.0
 
+  # Екран не гасне під час дихальних вправ
+  wakelock_plus: ^1.5.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -5,7 +5,6 @@ import 'package:hunting_signals/screens/admin_education_screen.dart';
 import 'package:hunting_signals/screens/admin_events_screen.dart';
 import 'package:hunting_signals/screens/edit_signals_screen.dart';
 import 'package:hunting_signals/screens/admin_exam_screen.dart';
-import 'package:hunting_signals/screens/admin_breathing_screen.dart';
 import 'package:hunting_signals/screens/admin_pokit_screen.dart';
 import 'package:hunting_signals/screens/admin_access_screen.dart';
 
@@ -222,18 +221,6 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                         context,
                         MaterialPageRoute(
                           builder: (context) => const AdminExamScreen(),
-                        ),
-                      ),
-                    ),
-                    _buildAdminCard(
-                      context,
-                      'Дихальні вправи',
-                      Icons.air,
-                      Colors.green,
-                      () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const AdminBreathingScreen(),
                         ),
                       ),
                     ),
