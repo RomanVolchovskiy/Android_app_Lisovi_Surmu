@@ -9,7 +9,7 @@ import { openNotation } from './notation.js';
 import { openMagicHorn } from './trainer-horn.js';
 import { openMetronome } from './trainer-metronome.js';
 import { openExamEntry } from './exam.js';
-import { breathingTrainer } from './trainer-breathing.js';
+import { breathGymTrainer } from './trainer-breath-gym.js';
 import { pokitTrainer } from './trainer-pokit.js';
 
 const cache = {};
@@ -320,7 +320,7 @@ const TRAINERS = [
   { id: 'notes', icon: 'music_note', label: 'Примітивні ноти', render: primitiveNotesTrainer },
   { id: 'horn', icon: 'sports_esports', label: 'Чарівна сурма', render: magicHornTrainer },
   { id: 'metronome', icon: 'timer', label: 'Метроном', render: metronomeTrainer },
-  { id: 'breathing', icon: 'air', label: 'Дихальна гімнастика', render: breathingTrainer },
+  { id: 'breathing', icon: 'air', label: 'Дихальний тренажер', render: breathGymTrainer },
   { id: 'pokit', icon: 'pets', label: 'Покіт: розкладка здобичі', render: pokitTrainer },
 ];
 
