@@ -8,6 +8,7 @@ import {
   defaults, settingsFor, bpmAdjustable, seriesAdjustable, buildTimeline, stepEnd, estimateSeconds, estimateProgramSeconds,
   BreathEngine, StopwatchSession, FreeTimer, ProgramRun, weekCounts, currentStreak, longestStreak, chartPoints, bestOf, fmt,
 } from '../breath-gym-core.js';
+import { mountFigure, stepVariant } from '../breath-gym-figures.js';
 
 /** append без null/false — DOM-метод append вивів би їх як текст «null». */
 const put = (el, ...kids) => { el.append(...kids.flat(Infinity).filter((k) => k != null && k !== false)); return el; };
@@ -121,9 +122,31 @@ function ensureStyles() {
 .bgym .navcards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 4px; }
 .bgym .navcards .tile { margin: 0; flex-direction: column; align-items: flex-start; cursor: pointer; }
 .bgym-tab .prog { background: #C8E6C9; cursor: pointer; }
+.bgym { --fig-ink: var(--bg-text); --fig-bg: var(--bg-bg); --fig-inhale: var(--ph-inhale); --fig-exhale: var(--ph-exhale);
+  --fig-prop: #8D6E63; --fig-brass: #B8901C; --fig-paper: #fff; }
+.bgym canvas.fig { display: block; }
+.bgym .tile canvas.fig { width: 56px; height: 56px; flex: none; --fig-bg: #fff; }
+.bgym .fig-hero { width: min(60vw, 220px); aspect-ratio: 1; margin: 0 auto 8px; }
+.bgym .stage { position: relative; }
+.bgym .stage > .circle { position: absolute; inset: 0; }
+.bgym .stage > canvas.fig { position: absolute; inset: 0; width: 100%; height: 100%; }
+.bgym .badge { position: absolute; top: 0; right: 0; min-width: 48px; height: 48px; padding: 0 8px; border-radius: 24px; display: grid; place-items: center;
+  font-size: 24px; font-weight: 800; color: var(--ph-on); font-variant-numeric: tabular-nums; }
+.bgym .badge:empty { display: none; }
 `));
 }
 const phaseVar = (t) => `var(--ph-${t})`;
+/** Полотно з фігуркою вправи. Поки полотна немає на сторінці чи його не видно, анімація не малює. */
+const figCanvas = (cls = '', label = '') => h('canvas', { class: `fig ${cls}`.trim(), role: 'img', 'aria-label': label });
+const demoFigs = new WeakMap();
+/** Зациклене прев'ю вправи. */
+function demoFigure(e, cls) {
+  const c = figCanvas(cls, `Як виконувати: ${e.title}`);
+  demoFigs.set(c, mountFigure(c, e.id, { demo: true }));
+  return c;
+}
+const stopFigure = (c) => demoFigs.get(c)?.stop();
+const HALO = 0.22; // прозорість кола фаз позаду фігурки
 
 // ── Вкладка в «Навчальних тренажерах» ───────────────────────────────────
 export function breathGymTrainer() {
@@ -135,7 +158,7 @@ export function breathGymTrainer() {
   const blocks = Object.entries(BLOCKS).map(([n, title]) => [
     h('div', { class: 'sec-title' }, `${ROMANS[n - 1]}. ${title}`),
     ...EXERCISES.filter((e) => e.block === Number(n)).map((e) => h('div', { class: 'tile', style: { cursor: 'pointer' }, onClick: () => openExercise(e) },
-      icon(e.mode === MODE.guided ? 'air' : e.mode === MODE.stopwatch ? 'timer' : 'hourglass_bottom'),
+      demoFigure(e),
       h('div', { class: 'grow' }, h('div', { class: 't' }, e.title),
         h('div', { class: 's' }, `${e.source} · ${fmt.approx(estimateSeconds(e, exSettings(e)))}`),
         e.needsItem ? h('div', { class: 's' }, `Потрібно: ${e.needsItem}`) : null),
@@ -181,7 +204,9 @@ function screen(title, build) {
 // ── Картка вправи ───────────────────────────────────────────────────────
 function openExercise(e) {
   ensureStyles();
-  screen(e.title, (body) => {
+  screen(e.title, (body, api) => {
+    const hero = demoFigure(e, 'fig-hero');
+    api.onCleanup(() => stopFigure(hero));
     let s = exSettings(e);
     const setS = (next) => {
       const norm = next.repeats === e.groups[0]?.repeats ? { ...next, repeats: null } : next;
@@ -209,7 +234,7 @@ function openExercise(e) {
         settingsRows.push(h('div', { class: 'row' }, h('span', { class: 'lbl' }, 'Склад'), h('span', { class: 'seg', role: 'group' },
           ...[['ту', 'ту (з атакою)'], ['ху', 'ху (без атаки)']].map(([v, l]) => h('button', { class: s.syllable === v ? 'on' : '', 'aria-pressed': String(s.syllable === v), onClick: () => setS({ ...s, syllable: v }) }, l)))));
       }
-      put(clear(body), 
+      put(clear(body), hero,
         h('div', { class: 'chips-inline' },
           h('span', { class: 'chip' }, MODE_LABEL[e.mode]),
           h('span', { class: 'chip' }, fmt.approx(estimateSeconds(e, s))),
@@ -280,8 +305,10 @@ function runGuided(e, s, { allowRepeat = false } = {}) {
     };
 
     const D = 'min(78vw, 40vh, 340px)';
-    const inCircle = h('div', { style: { fontSize: '44px' } });
-    const circle = h('div', { class: 'circle', style: { width: D, height: D, background: phaseVar('rest'), transform: `scale(${MIN_L})` } }, inCircle);
+    const inCircle = h('div', { class: 'badge', 'aria-hidden': 'true' });
+    const circle = h('div', { class: 'circle', style: { background: phaseVar('rest'), transform: `scale(${MIN_L})`, opacity: HALO } });
+    const figEl = figCanvas('', `Анімація вправи: ${e.title}`);
+    const fig = mountFigure(figEl, e.id);
     const phaseEl = h('div', { class: 'phase', 'aria-live': 'polite' });
     const hintEl = h('div', { class: 'hint' });
     const beatEl = h('div', { class: 'muted', style: { textAlign: 'center', fontSize: '16px', marginTop: '6px' } });
@@ -292,7 +319,7 @@ function runGuided(e, s, { allowRepeat = false } = {}) {
     const runView = h('div', {},
       h('div', { style: { display: 'flex', justifyContent: 'space-between' } }, seriesEl, countEl),
       h('div', { style: { background: 'var(--bg-line)', borderRadius: '3px', marginTop: '8px' } }, bar), remainEl,
-      h('div', { class: 'stage', style: { width: D, height: D } }, circle),
+      h('div', { class: 'stage', style: { width: D, height: D } }, circle, figEl, inCircle),
       phaseEl, hintEl, beatEl,
       h('div', { class: 'ctl', style: { marginTop: '20px' } }, pauseBtn, stopBtn, skipBtn));
     put(body, runView);
@@ -344,7 +371,7 @@ function runGuided(e, s, { allowRepeat = false } = {}) {
     };
     document.addEventListener('visibilitychange', onVis);
     api.onCleanup(() => {
-      cancelAnimationFrame(raf); clearTimeout(beatTimer); clearInterval(countTimer);
+      cancelAnimationFrame(raf); clearTimeout(beatTimer); clearInterval(countTimer); fig.stop();
       document.removeEventListener('visibilitychange', onVis); release();
       try { speechSynthesis.cancel(); } catch { /* ок */ }
       if (engine.status !== 'finished') engine.stop();
@@ -358,9 +385,15 @@ function runGuided(e, s, { allowRepeat = false } = {}) {
       const shown = st || steps[0];
       const color = waiting ? phaseVar('rest') : phaseVar(st.type);
       circle.style.background = color;
-      circle.style.opacity = paused ? 0.5 : 1;
+      circle.style.opacity = paused ? HALO / 2 : HALO;
       circle.style.transform = `scale(${waiting ? MIN_L : scaleOf(st)})`;
+      inCircle.style.background = color;
       inCircle.textContent = waiting ? (count ?? '') : st.beats > 0 ? String(engine.beat + 1) : String(Math.ceil(engine.remainingInStep / 1000));
+      figEl.style.opacity = paused ? 0.5 : 1;
+      fig.update(waiting ? { type: 'rest', progress: 0 } : {
+        type: st.type, progress: engine.stepProgress, variant: stepVariant(e, st), beats: st.beats, swell: st.swell,
+        syllable: st.type === 'action' ? st.hint : undefined,
+      });
       phaseEl.textContent = waiting ? 'Приготуйся' : PHASE_LABEL[st.type];
       phaseEl.style.color = color;
       hintEl.textContent = shown?.hint || '';
@@ -413,14 +446,18 @@ function runStopwatch(e) {
     const onVis = () => { if (document.visibilityState !== 'visible' && session.phase !== 'done') session.cancel(); };
     document.addEventListener('visibilitychange', onVis);
     api.onCleanup(() => {
-      cancelAnimationFrame(raf); release(); document.removeEventListener('visibilitychange', onVis);
+      cancelAnimationFrame(raf); release(); document.removeEventListener('visibilitychange', onVis); fig.stop(); stopFigure(hero);
       if (thisRun > 0) addSession(e.id, 60);
     });
 
     const recordLine = () => h('div', { class: 'row', style: { fontWeight: 600 } }, icon('emoji_events'),
       record > 0 ? `Рекорд: ${fmt.sec(record)}` : 'Рекорду ще немає');
-    const bigEl = h('div', { style: { fontSize: '60px', fontVariantNumeric: 'tabular-nums' } });
-    const circle = h('div', { class: 'circle', style: { width: '260px', height: '260px' } }, bigEl);
+    const bigEl = h('div', { style: { fontSize: '56px', fontWeight: 700, textAlign: 'center', fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 } });
+    const circle = h('div', { class: 'circle', style: { opacity: HALO } });
+    const hero = demoFigure(e, 'fig-hero');
+    const figEl = figCanvas('', `Анімація вправи: ${e.title}`);
+    const fig = mountFigure(figEl, e.id);
+    const SW = 'min(70vw, 34vh, 260px)';
     const label = h('div', { class: 'phase' }), sub = h('div', { class: 'hint', style: { fontSize: '17px' } });
     const stopBtn = h('button', { class: 'btn block', style: { minHeight: '96px', fontSize: '24px', marginTop: '16px' }, onClick: () => session.stop() });
 
@@ -430,7 +467,7 @@ function runStopwatch(e) {
       if (p === 'ready' || p === 'done') {
         const result = p === 'done' ? session.result : null;
         const isRecord = result != null && result >= record && result > prevRecord;
-        put(clear(body), recordLine(),
+        put(clear(body), hero, recordLine(),
           e.benchmark ? h('div', { class: 'muted' }, e.benchmark) : null,
           result == null ? h('div', { style: { fontSize: '17px', lineHeight: 1.5, margin: '16px 0' } }, e.description)
             : h('div', { style: { textAlign: 'center', margin: '16px 0' }, 'aria-live': 'polite' },
@@ -445,7 +482,7 @@ function runStopwatch(e) {
               h('b', { style: { flex: 1 } }, fmt.sec(a.seconds)), h('span', { class: 'muted' }, fmt.dateTime(a.at))))) : null);
         return;
       }
-      put(clear(body), recordLine(), h('div', { class: 'stage', style: { width: '260px', height: '260px' } }, circle), label, sub, stopBtn);
+      put(clear(body), recordLine(), h('div', { class: 'stage', style: { width: SW, height: SW } }, circle, figEl), bigEl, label, sub, stopBtn);
       const loop = () => {
         session.tick();
         const ph = session.phase;
@@ -454,6 +491,10 @@ function runStopwatch(e) {
         const color = ph === 'countdown' ? phaseVar('rest') : ph === 'inhale' ? phaseVar('inhale') : phaseVar('exhale');
         circle.style.background = color;
         circle.style.transform = `scale(${ph === 'inhale' ? 0.45 + 0.55 * ease(session.inhaleProgress) : exhaling ? 1 : 0.45})`;
+        // на видиху повітря йде на повну силу, скільки б він не тривав
+        fig.update(ph === 'countdown' ? { type: 'rest', progress: 0 }
+          : ph === 'inhale' ? { type: 'inhale', progress: session.inhaleProgress }
+            : { type: 'exhale', progress: 0.5 * Math.min(1, session.exhaleSeconds / 2) });
         bigEl.textContent = exhaling ? fmt.secNumber(session.exhaleSeconds) : String(session.secondsLeft);
         label.textContent = ph === 'countdown' ? 'Приготуйся' : ph === 'inhale' ? 'ВДИХ' : 'ВИДИХ';
         label.style.color = color;
@@ -469,6 +510,7 @@ function runStopwatch(e) {
 }
 
 // ── Таймер ──────────────────────────────────────────────────────────────
+const BAG_INHALE_MS = 3000, BAG_CYCLE_MS = 7000;
 function runTimer(e) {
   return screen(e.title, (body, api) => {
     const timer = new FreeTimer(e.totalSeconds);
@@ -477,7 +519,9 @@ function runTimer(e) {
     timer.onTimeUp = sound.timeUp;
     const onVis = () => { if (document.visibilityState !== 'visible') { timer.pause(); draw(); } };
     document.addEventListener('visibilitychange', onVis);
-    api.onCleanup(() => { cancelAnimationFrame(raf); release(); document.removeEventListener('visibilitychange', onVis); });
+    const figEl = figCanvas('fig-hero', `Анімація вправи: ${e.title}`);
+    const fig = mountFigure(figEl, e.id);
+    api.onCleanup(() => { cancelAnimationFrame(raf); release(); document.removeEventListener('visibilitychange', onVis); fig.stop(); });
 
     const R = 108, C = 2 * Math.PI * R;
     const timeEl = h('div', { style: { position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', fontSize: '56px', fontWeight: 700, fontVariantNumeric: 'tabular-nums' } });
@@ -493,13 +537,20 @@ function runTimer(e) {
       h('div', { style: { fontSize: '17px', lineHeight: 1.5 } }, e.description),
       e.needsItem ? h('div', { class: 'box info' }, icon('backpack'), h('div', {}, h('b', {}, 'Потрібно: '), e.needsItem)) : null,
       e.warning ? h('div', { class: 'box warn' }, icon('warning'), h('div', {}, e.warning)) : null,
-      h('div', { style: { position: 'relative', width: '240px', height: '240px', margin: '28px auto 0' }, role: 'timer', 'aria-label': 'Залишилось часу' }, svg, timeEl),
+      h('div', { style: { marginTop: '16px' } }, figEl),
+      h('div', { style: { position: 'relative', width: '240px', height: '240px', margin: '12px auto 0' }, role: 'timer', 'aria-label': 'Залишилось часу' }, svg, timeEl),
       doneLbl, mainBtn, doneBtn);
 
     function draw() {
       const done = timer.status === 'done';
       if (done && !logged) { logged = true; addSession(e.id, Math.round(timer.elapsed / 1000)); api.setResult(true); }
       fg.setAttribute('stroke-dashoffset', String(C * timer.progress));
+      // спокійний темп-орієнтир: вдих 3 с, видих 4 с
+      if (timer.status === 'running') {
+        const t = timer.elapsed % BAG_CYCLE_MS;
+        fig.update(t < BAG_INHALE_MS ? { type: 'inhale', progress: t / BAG_INHALE_MS }
+          : { type: 'exhale', progress: (t - BAG_INHALE_MS) / (BAG_CYCLE_MS - BAG_INHALE_MS) });
+      } else if (timer.status !== 'paused') fig.update({ type: 'rest', progress: 0 });
       timeEl.replaceChildren(done ? icon('check_circle') : fmt.clock(timer.remainingSeconds));
       timeEl.style.color = done ? 'var(--ph-exhale)' : '';
       doneLbl.textContent = done ? (timer.timeUp ? 'Час вийшов' : 'Вправу виконано') : '';
