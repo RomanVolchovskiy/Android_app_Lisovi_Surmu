@@ -2,7 +2,7 @@
 // план навчання, флеш-картки, тестування.
 import { h, icon, toast, clear, emptyState, pushScreen, appBar, spinner } from '../ui.js';
 import { db, collection, getDocs, query, where } from '../firebase.js';
-import { getSignals, isYouTube, youTubeId, mediaUrl, driveId } from '../data.js';
+import { getSignals, waitForSignals, isYouTube, youTubeId, mediaUrl, driveId } from '../data.js';
 import { audio } from '../audio.js';
 import { openVideo } from './video.js';
 import { openNotation } from './notation.js';
@@ -11,7 +11,11 @@ import { openMetronome } from './trainer-metronome.js';
 import { openExamEntry } from './exam.js';
 import { breathGymTrainer } from './trainer-breath-gym.js';
 import { pokitTrainer } from './trainer-pokit.js';
-import { shuffle } from '../quiz-core.js';
+import { shuffle, permuteOptions, signalPool, buildAudioItems } from '../quiz-core.js';
+import { bySortOrder } from '../csv-import.js';
+
+/** Тег сигналів, які студенти вивчають на навчальній практиці (ТЗ 3.6). */
+const PRACTICE_TAG = 'практика';
 
 const cache = {};
 /** Скидає кеш — після змін в адмін-панелі навчання розділ підтягне свіжі дані. */
@@ -22,7 +26,7 @@ async function col(name, filterField, filterValue) {
   const q = filterField ? query(collection(db, name), where(filterField, '==', filterValue)) : collection(db, name);
   const snap = await getDocs(q);
   const rows = snap.docs.map((d) => ({ _doc: d.id, ...d.data() }));
-  rows.sort((a, b) => (a.sortOrder ?? a.order ?? 0) - (b.sortOrder ?? b.order ?? 0));
+  rows.sort(bySortOrder);
   cache[key] = rows;
   return rows;
 }
@@ -54,6 +58,9 @@ export function renderEducation(container) {
 }
 
 // ── Список тем ───────────────────────────────────────────────────────────────
+/** Теми для студентів: приховані (лише для іспитів) не показуються. */
+const visibleTopics = async () => (await col('edu_topics')).filter((t) => t.hidden !== true);
+
 function topicList(topics, ic, emptyHint, onOpen) {
   if (!topics.length) return emptyState(ic, emptyHint);
   return h('div', {}, topics.map((t, i) => h('div', { class: 'tile', style: { cursor: 'pointer' }, onClick: () => onOpen(t) },
@@ -63,7 +70,7 @@ function topicList(topics, ic, emptyHint, onOpen) {
 }
 
 async function theoryTab() {
-  const topics = await col('edu_topics');
+  const topics = await visibleTopics();
   return topicList(topics, 'menu_book', 'Адмін ще не додав теми', (t) => openTopic(t, 'edu_learning_materials'));
 }
 async function practiceTab() {
@@ -186,7 +193,7 @@ function openPlanLevel(label, color, entries, topicName) {
 
 // ── Флеш-картки ──────────────────────────────────────────────────────────────
 async function cardsTab() {
-  const topics = await col('edu_topics');
+  const topics = await visibleTopics();
   return topicList(topics, 'style', 'Адмін ще не додав теми', openFlashcards);
 }
 
@@ -226,51 +233,72 @@ async function testsTab() {
     h('div', { class: 'dk-row' }, h('div', { style: { width: '40px', height: '40px', borderRadius: '10px', background: `${color}1f`, display: 'grid', placeItems: 'center', color } }, icon(ic)),
       h('div', { class: 'grow' }, h('div', { class: 't' }, title), h('div', { class: 's' }, subtitle))),
     content);
-  const levelBtn = (d, label, emoji, color) => h('button', { class: 'btn text', style: { justifyContent: 'flex-start', color }, onClick: () => startAudioTest(d) }, `${emoji} ${label}`);
+  const levelBtn = (filter, label, color) => h('button', { class: 'btn text', style: { justifyContent: 'flex-start', color }, onClick: () => startAudioTest(filter) }, label);
+  // «Сигнали практики» — лише коли з тегом і аудіо є щонайменше 4 сигнали
+  const practice = signalPool(await waitForSignals(), { tag: PRACTICE_TAG }).length >= 4
+    ? levelBtn({ tag: PRACTICE_TAG }, '📯 Сигнали практики', '#5D4037') : null;
   return h('div', {},
     card('quiz', 'Пробне тестування', 'Перевір знання без збереження результатів', '#2F4F2F',
       h('div', {},
         h('div', { style: { fontWeight: 600, margin: '6px 0' } }, '🎧 Аудіо тест — рівень складності'),
         h('div', { style: { display: 'flex', flexDirection: 'column' } },
-          levelBtn('easy', 'Легкий', '🟢', '#2E7D32'), levelBtn('medium', 'Середній', '🟡', '#F57F17'), levelBtn('hard', 'Важкий', '🔴', '#C62828'),
-          h('button', { class: 'btn text', style: { justifyContent: 'flex-start' }, onClick: () => startAudioTest(null) }, '🎯 Усі сигнали')),
+          practice,
+          levelBtn('easy', '🟢 Легкий', '#2E7D32'), levelBtn('medium', '🟡 Середній', '#F57F17'), levelBtn('hard', '🔴 Важкий', '#C62828'),
+          levelBtn(null, '🎯 Усі сигнали', 'inherit')),
         h('div', { style: { fontWeight: 600, margin: '10px 0 6px' } }, '📖 Теоретичний тест'),
         h('button', { class: 'btn text', style: { justifyContent: 'flex-start' }, onClick: openTheoryTopics }, icon('menu_book'), 'Обрати тему'))),
     card('school', 'Іспит', 'Введіть код сесії, наданий адміністратором', '#1565C0',
       h('button', { class: 'btn', onClick: () => openExamEntry() }, 'Ввести код сесії')));
 }
 
-function startAudioTest(difficulty) {
-  const withAudio = getSignals().filter((s) => s.audioUrl);
-  const pool = difficulty ? withAudio.filter((s) => s.difficulty === difficulty) : withAudio;
-  if (!pool.length) { toast('Немає сигналів з аудіо для цього рівня'); return; }
-  const picked = shuffle(pool.slice()).slice(0, 10);
-  const names = withAudio.map((s) => s.name);
-  const questions = picked.map((s) => {
-    const wrongs = shuffle(names.filter((n) => n !== s.name)).slice(0, 3);
-    const options = shuffle([s.name, ...wrongs]);
-    return { audioUrl: s.audioUrl, options, correct: options.indexOf(s.name), answer: null };
+/**
+ * Пробний аудіотест. filter — рівень складності ('easy'…), { tag } або null
+ * (усі сигнали). Хибні варіанти — з того самого набору, якщо в ньому ≥ 4
+ * сигнали, інакше з усіх сигналів з аудіо (quiz-core.js → buildAudioItems).
+ */
+function startAudioTest(filter) {
+  const all = getSignals();
+  const withAudio = signalPool(all);
+  const pool = filter == null ? withAudio
+    : typeof filter === 'object' ? signalPool(all, filter) : signalPool(all, { difficulty: filter });
+  if (!pool.length) { toast('Немає сигналів з аудіо для цього набору'); return; }
+  const byId = new Map(pool.map((sg) => [sg.id, sg]));
+  const build = () => buildAudioItems(pool, Math.min(10, pool.length), Math.random, withAudio).map((it) => {
+    const sg = byId.get(it.signalId);
+    return { audioUrl: sg.audioUrl, options: it.options, correct: it.options.indexOf(sg.name), answer: null };
   });
-  runQuiz('Аудіо тест', questions, (q) => h('div', { style: { textAlign: 'center', margin: '12px 0' } },
+  runQuiz(filter?.tag ? 'Аудіо тест: сигнали практики' : 'Аудіо тест', build, (q) => h('div', { style: { textAlign: 'center', margin: '12px 0' } },
     h('button', { class: 'play-big', style: { margin: '0 auto' }, onClick: () => audio.play(q.audioUrl).catch((e) => toast(`Помилка відтворення: ${e.message}`, 'err')) }, icon('play_arrow')),
     h('div', { class: 's', style: { color: 'var(--grey-600)', marginTop: '8px' } }, 'Прослухайте сигнал і оберіть його назву')));
 }
 
 async function openTheoryTopics() {
-  const topics = await col('edu_topics');
-  pushScreen(({ pop }) => h('div', { class: 'page', style: { background: 'var(--bg)' } },
-    appBar('Пробний теоретичний тест', { back: pop, small: true }),
-    h('div', { class: 'body' }, h('div', { class: 'body-inner' }, topicList(topics, 'menu_book', 'Теми ще не додані', async (t) => {
-      const qs = await col('edu_test_questions', 'topicId', t.id);
-      if (!qs.length) { toast('До цієї теми ще не додані питання'); return; }
-      runQuiz(t.name, qs.map((q) => ({ text: q.question, options: q.options || [], correct: Number(q.correctIndex) || 0, explanation: q.explanation, answer: null })),
-        (q) => h('div', { style: { fontSize: '16px', fontWeight: 600, margin: '12px 0', lineHeight: 1.5 } }, q.text));
-    })))));
+  const topics = await visibleTopics();
+  pushScreen(({ pop }) => {
+    // Порядок питань — як у банку; за бажанням перемішується. Варіанти
+    // перемішуються завжди, при кожному запуску й «Пройти знову».
+    const mix = h('input', { type: 'checkbox' });
+    return h('div', { class: 'page', style: { background: 'var(--bg)' } },
+      appBar('Пробний теоретичний тест', { back: pop, small: true }),
+      h('div', { class: 'body' }, h('div', { class: 'body-inner' },
+        h('label', { class: 'dk-row', style: { gap: '8px', fontSize: '14px', margin: '0 0 12px', cursor: 'pointer' } }, mix, 'Перемішати питання'),
+        topicList(topics, 'menu_book', 'Теми ще не додані', async (t) => {
+          const qs = await col('edu_test_questions', 'topicId', t.id);
+          if (!qs.length) { toast('До цієї теми ще не додані питання'); return; }
+          const shuffleQuestions = mix.checked;
+          const build = () => (shuffleQuestions ? shuffle(qs) : qs).map((q) => {
+            const p = permuteOptions(q);
+            return { text: q.question, options: p.options, correct: p.correct, explanation: q.explanation || null, answer: null };
+          });
+          runQuiz(t.name, build, (q) => h('div', { style: { fontSize: '16px', fontWeight: 600, margin: '12px 0', lineHeight: 1.5 } }, q.text));
+        }))));
+  });
 }
 
-/** Спільний екран тесту: питання → варіанти → результат. */
-function runQuiz(title, questions, renderPrompt) {
+/** Спільний екран тесту: питання → варіанти → результат. build() дає новий набір (і для «Пройти знову»). */
+function runQuiz(title, build, renderPrompt) {
   pushScreen((ctx) => {
+    let questions = build();
     let i = 0;
     ctx.onPop = () => audio.pause();
     const body = h('div', { class: 'body-inner' });
@@ -278,16 +306,21 @@ function runQuiz(title, questions, renderPrompt) {
       clear(body);
       if (i >= questions.length) { result(); return; }
       const q = questions[i];
+      const explanation = q.explanation
+        ? h('div', { class: 'tile', style: { display: 'block', fontSize: '14px', background: 'rgba(47,79,47,.06)', margin: '8px 0' }, hidden: true },
+          h('b', {}, 'Пояснення: '), q.explanation)
+        : null;
       const opts = q.options.map((o, k) => h('button', { class: 'tile', style: { width: '100%', textAlign: 'left', cursor: 'pointer' }, onClick: () => {
         if (q.answer != null) return;
         q.answer = k;
         opts.forEach((b, j) => { b.style.borderLeft = `4px solid ${j === q.correct ? '#2E7D32' : j === k ? '#C62828' : 'transparent'}`; });
+        if (explanation) explanation.hidden = false;
         next.hidden = false;
       } }, h('span', { class: 'grow' }, o)));
       const next = h('button', { class: 'btn block', hidden: true, onClick: () => { audio.pause(); i++; render(); } }, i < questions.length - 1 ? 'Наступне питання' : 'Завершити');
       body.append(
         h('div', { style: { color: 'var(--grey-600)', fontSize: '13px' } }, `Питання ${i + 1} з ${questions.length}`),
-        renderPrompt(q), ...opts, q.explanation ? h('div', { class: 's', style: { margin: '8px 0', color: 'var(--grey-600)' }, hidden: true }) : null, next);
+        renderPrompt(q), ...opts, ...(explanation ? [explanation] : []), next);
     };
     const result = () => {
       const correct = questions.filter((q) => q.answer === q.correct).length;
@@ -301,10 +334,11 @@ function runQuiz(title, questions, renderPrompt) {
         ...questions.map((q, k) => h('div', { class: 'tile', style: { borderLeft: `4px solid ${q.answer === q.correct ? '#2E7D32' : '#C62828'}` } },
           h('div', { class: 'grow' }, h('div', { class: 't', style: { fontSize: '14px' } }, `${k + 1}. ${q.text || 'Сигнал'}`),
             h('div', { class: 's' }, `Ваша відповідь: ${q.answer != null ? q.options[q.answer] : 'Не відповіли'}`),
-            h('div', { class: 's', style: { color: '#2E7D32' } }, `Правильно: ${q.options[q.correct]}`)))),
+            h('div', { class: 's', style: { color: '#2E7D32' } }, `Правильно: ${q.options[q.correct]}`),
+            q.explanation ? h('div', { class: 's', style: { fontStyle: 'italic', marginTop: '2px' } }, q.explanation) : null))),
         h('div', { class: 'dk-row', style: { justifyContent: 'center', marginTop: '12px' } },
           h('button', { class: 'btn text', onClick: ctx.pop }, 'Назад'),
-          h('button', { class: 'btn', onClick: () => { questions.forEach((q) => { q.answer = null; }); i = 0; render(); } }, icon('replay'), 'Пройти знову')));
+          h('button', { class: 'btn', onClick: () => { questions = build(); i = 0; render(); } }, icon('replay'), 'Пройти знову')));
     };
     render();
     return h('div', { class: 'page', style: { background: 'var(--bg)' } },

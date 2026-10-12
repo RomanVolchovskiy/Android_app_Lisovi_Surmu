@@ -15,6 +15,7 @@ import {
 } from './firebase.js';
 import { waitForSignals } from './data.js';
 import { examConfig, countTheoryCorrect, countAudioCorrect, scorePart } from './quiz-core.js';
+import { bySortOrder } from './csv-import.js';
 
 export const SESSIONS = 'exam_sessions';
 export const ATTEMPTS = 'exam_attempts';
@@ -45,7 +46,7 @@ export async function loadQuestionPool(topicIds) {
   }
   const rank = new Map(ids.map((id, i) => [id, i]));
   return out.sort((a, b) => (rank.get(a.topicId) - rank.get(b.topicId))
-    || ((a.sortOrder ?? a.order ?? 0) - (b.sortOrder ?? b.order ?? 0)) || a.id.localeCompare(b.id));
+    || bySortOrder(a, b));
 }
 
 /** Усе, що потрібно для показу й оцінювання спроби: питання і сигнали за id. */

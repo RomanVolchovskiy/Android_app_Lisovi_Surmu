@@ -4,6 +4,7 @@ import { h, icon, toast, pushScreen, appBar, confirmDialog, pickFiles, clear, sp
 import { db, collection, doc, getDocs, setDoc, deleteDoc, query, where, writeBatch } from '../firebase.js';
 import { uploadMedia, youTubeId, AUDIO_EXT, IMAGE_EXT, VIDEO_EXT } from '../data.js';
 import { invalidateEducationCache } from './education.js';
+import { parseCsvLine, parseCsvFile, parseQuestionRow, parseCardRow, importId, bySortOrder } from '../csv-import.js';
 
 const TOPICS = 'edu_topics';
 const MATERIALS = 'edu_learning_materials';
@@ -30,7 +31,7 @@ const TABS = [
 async function load(name, topicId) {
   const q = topicId ? query(collection(db, name), where('topicId', '==', topicId)) : collection(db, name);
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ ...d.data(), id: d.data().id || d.id }));
+  return snap.docs.map((d) => ({ ...d.data(), id: d.data().id || d.id })).sort(bySortOrder);
 }
 
 /** Запис у Firestore з повідомленням про результат; true — успіх. */
@@ -46,20 +47,9 @@ async function write(action, okText) {
   }
 }
 
-/** Рядок CSV з комою-роздільником; поле в лапках "…" може містити коми,
- *  а "" усередині — це лапка (так зберігає Excel). Без лапок — як раніше. */
-function splitCsvLine(line) {
-  const out = [];
-  let cur = '', quoted = false;
-  for (let i = 0; i < line.length; i++) {
-    const c = line[i];
-    if (quoted) {
-      if (c === '"' && line[i + 1] === '"') { cur += '"'; i++; } else if (c === '"') quoted = false; else cur += c;
-    } else if (c === '"' && !cur.trim()) { quoted = true; cur = ''; } else if (c === ',') { out.push(cur); cur = ''; } else cur += c;
-  }
-  out.push(cur);
-  return out;
-}
+// Розбір рядка CSV (лапки, коми в полях) — csv-import.js; ця назва лишається
+// для перевірки якості даних нижче.
+const splitCsvLine = parseCsvLine;
 
 const field = (label, input) => h('label', { class: 'field' }, h('span', {}, label), input);
 const input = (value = '', placeholder = '', type = 'text') => h('input', { type, placeholder, value });
@@ -130,7 +120,9 @@ export function openAdminEducation() {
             h('div', { style: { display: 'flex', flexDirection: 'column' } },
               h('button', { class: 'iconbtn dim', title: 'Вище', disabled: i === 0, onClick: () => move(i, -1) }, icon('arrow_upward')),
               h('button', { class: 'iconbtn dim', title: 'Нижче', disabled: i === topics.length - 1, onClick: () => move(i, 1) }, icon('arrow_downward'))),
-            h('div', { class: 'grow' }, h('div', { class: 't' }, t.name), t.description ? h('div', { class: 's' }, t.description) : null),
+            h('div', { class: 'grow' }, h('div', { class: 't' }, t.name,
+              t.hidden ? h('span', { class: 's', style: { marginLeft: '8px', color: '#EF6C00', fontWeight: 600 } }, '🔒 прихована') : null),
+            t.description ? h('div', { class: 's' }, t.description) : null),
             rowActions(() => draw(t.id), async () => {
               if (!await confirmDialog('Видалити тему?', `Видалити «${t.name}»? Матеріали теми залишаться в базі без теми.`, { okLabel: 'Видалити', cancelLabel: 'Скасувати', danger: true })) return;
               if (await write(() => deleteDoc(doc(db, TOPICS, t.id)), 'Тему видалено')) { await reloadTopics(); draw(); }
@@ -151,8 +143,11 @@ export function openAdminEducation() {
         const name = input(t?.name, 'Назва теми');
         const desc = textarea(t?.description, 'Короткий опис');
         const image = input(t?.imageUrl ?? '', 'https://…');
+        const hidden = h('input', { type: 'checkbox', checked: t?.hidden === true });
         return formBox(t ? 'Редагувати тему' : 'Нова тема', [
           field('Назва *', name), field('Опис', desc), field('Зображення (посилання)', image),
+          h('label', { class: 'dk-row', style: { gap: '8px', fontSize: '14px', marginBottom: '6px', cursor: 'pointer' } }, hidden, 'Прихована (лише для іспитів)'),
+          h('div', { class: 's', style: { marginBottom: '12px' } }, 'Прихованої теми не видно в теорії, флеш-картках і пробних тестах сайту; її питання можна брати в іспит.'),
         ], async () => {
           if (!name.value.trim()) { toast('Введіть назву теми', 'err'); return; }
           const data = {
@@ -161,8 +156,10 @@ export function openAdminEducation() {
             description: desc.value.trim(),
             imageUrl: image.value.trim() || null,
             sortOrder: t?.sortOrder ?? topics.length,
+            hidden: hidden.checked,
           };
-          if (await write(() => setDoc(doc(db, TOPICS, data.id), data), t ? 'Тему оновлено' : 'Тему додано')) { await reloadTopics(); draw(); }
+          // merge: поля, яких форма не знає (зокрема з додатку), не стираються
+          if (await write(() => setDoc(doc(db, TOPICS, data.id), data, { merge: true }), t ? 'Тему оновлено' : 'Тему додано')) { await reloadTopics(); draw(); }
         }, () => draw());
       };
       draw();
@@ -255,7 +252,7 @@ export function openAdminEducation() {
       if (!topics.length) return emptyState('topic', 'Спершу додайте тему', 'Вкладка «Теми»');
       return qaTab({
         colName: FLASHCARDS, idPrefix: 'fc', addLabel: 'Додати картку', empty: 'Карток ще немає',
-        csvHint: 'CSV: питання,відповідь',
+        csvHint: 'CSV: питання,відповідь (поле з комами — у лапках "…")',
         summary: (c) => [c.question, c.answer],
         form: (c) => {
           const q = textarea(c?.question, 'Питання'); const a = textarea(c?.answer, 'Відповідь');
@@ -264,12 +261,7 @@ export function openAdminEducation() {
             data: () => (q.value.trim() && a.value.trim() ? { question: q.value.trim(), answer: a.value.trim() } : null),
           };
         },
-        parseCsv: (line) => {
-          // відповідь без лапок може містити коми — усе після першого поля
-          const [first, ...rest] = splitCsvLine(line);
-          const question = (first ?? '').trim(); const answer = rest.join(',').trim();
-          return question && answer ? { question, answer } : null;
-        },
+        parseRow: parseCardRow,
       });
     }
 
@@ -278,7 +270,7 @@ export function openAdminEducation() {
       if (!topics.length) return emptyState('topic', 'Спершу додайте тему', 'Вкладка «Теми»');
       return qaTab({
         colName: QUESTIONS, idPrefix: 'tq', addLabel: 'Додати питання', empty: 'Питань ще немає',
-        csvHint: 'CSV: питання,варіант1,варіант2,варіант3,варіант4,правильний(0-3),пояснення',
+        csvHint: 'CSV: питання,варіант1,варіант2,варіант3,варіант4,правильний(0-3),пояснення (поле з комами — у лапках "…")',
         summary: (q) => [q.question, `✔ ${(q.options || [])[q.correctIndex] ?? ''}`],
         form: (q) => {
           const text = textarea(q?.question, 'Питання');
@@ -294,18 +286,12 @@ export function openAdminEducation() {
             },
           };
         },
-        parseCsv: (line) => {
-          const p = splitCsvLine(line);
-          if (p.length < 6) return null;
-          const question = p[0].trim(); const options = p.slice(1, 5).map((o) => o.trim());
-          if (!question || options.some((o) => !o)) return null;
-          return { question, options, correctIndex: parseInt(p[5], 10) || 0, explanation: p.length > 6 ? p.slice(6).join(',').trim() || null : null };
-        },
+        parseRow: parseQuestionRow,
       });
     }
 
     // Спільна вкладка для карток і тестів: список, форма, імпорт CSV
-    function qaTab({ colName, idPrefix, addLabel, empty, csvHint, summary, form, parseCsv }) {
+    function qaTab({ colName, idPrefix, addLabel, empty, csvHint, summary, form, parseRow }) {
       const wrap = h('div');
       const list = h('div');
       let items = [];
@@ -314,13 +300,16 @@ export function openAdminEducation() {
         items = await load(colName, selectedTopicId);
         draw();
       };
+      const nextOrder = () => items.reduce((m, x) => Math.max(m, (x.sortOrder ?? -1) + 1), items.length);
       const itemForm = (it) => {
         const f = form(it);
         return formBox(it ? 'Редагувати' : addLabel, f.fields, async () => {
           const d = f.data();
           if (!d) { toast('Заповніть усі обов’язкові поля', 'err'); return; }
-          const data = { id: it?.id || `${idPrefix}_${Date.now()}`, topicId: selectedTopicId, ...d };
-          if (await write(() => setDoc(doc(db, colName, data.id), data), 'Збережено')) refresh();
+          // новий — у кінець списку; під час редагування порядок не змінюється
+          const sortOrder = it ? it.sortOrder ?? null : nextOrder();
+          const data = { id: it?.id || `${idPrefix}_${Date.now()}`, topicId: selectedTopicId, ...d, ...(sortOrder != null ? { sortOrder } : {}) };
+          if (await write(() => setDoc(doc(db, colName, data.id), data, { merge: true }), 'Збережено')) refresh();
         }, () => draw());
       };
       const draw = (formFor) => {
@@ -347,20 +336,35 @@ export function openAdminEducation() {
       const importCsv = async () => {
         const [file] = await pickFiles({ accept: '.csv,.txt' });
         if (!file) return;
-        const rows = (await file.text()).split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map(parseCsv).filter(Boolean);
-        if (!rows.length) { toast(`Не знайдено жодного рядка у форматі ${csvHint}`, 'err'); return; }
+        const { rows, skipped } = parseCsvFile(await file.text(), parseRow);
+        const lines = (list) => list.slice(0, 15).map((x) => x.n).join(', ') + (list.length > 15 ? '…' : '');
+        if (!rows.length) {
+          toast(`Не знайдено жодного правильного рядка (${csvHint})${skipped.length ? `. Пропущено рядки: ${lines(skipped)}` : ''}`, 'err', 6000);
+          return;
+        }
+        const topicName = topics.find((t) => t.id === selectedTopicId)?.name ?? '—';
+        const go = await confirmDialog('Імпортувати CSV?',
+          `Тема: «${topicName}». Розпізнано рядків: ${rows.length}.`
+          + (skipped.length ? ` Буде пропущено: ${skipped.length} (рядки ${lines(skipped)}; перша причина: ${skipped[0].error}).` : '')
+          + ` Записи додадуться в кінець списку (зараз ${items.length}).`,
+          { okLabel: 'Імпортувати', cancelLabel: 'Скасувати' });
+        if (!go) return;
         const ts = Date.now();
+        const base = nextOrder();
         const ok = await write(async () => {
           for (let i = 0; i < rows.length; i += 400) { // ліміт Firestore — 500 записів на batch
             const batch = writeBatch(db);
             rows.slice(i, i + 400).forEach((r, j) => {
-              const id = `${idPrefix}_${ts}_${i + j}`;
-              batch.set(doc(db, colName, id), { id, topicId: selectedTopicId, ...r });
+              const id = importId(idPrefix, ts, i + j);
+              batch.set(doc(db, colName, id), { id, topicId: selectedTopicId, ...r, sortOrder: base + i + j });
             });
             await batch.commit();
           }
-        }, `Імпортовано: ${rows.length}`);
-        if (ok) refresh();
+        });
+        if (ok) {
+          toast(`Імпортовано ${rows.length}, пропущено ${skipped.length}${skipped.length ? ` (рядки: ${lines(skipped)})` : ''}`, skipped.length ? '' : 'ok', 6000);
+          refresh();
+        }
       };
       const deleteAll = async () => {
         if (!await confirmDialog('Видалити всі?', `Видалити всі записи (${items.length}) цієї теми?`, { okLabel: 'Видалити', cancelLabel: 'Скасувати', danger: true })) return;
