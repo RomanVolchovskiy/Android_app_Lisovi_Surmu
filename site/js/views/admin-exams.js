@@ -13,6 +13,7 @@ import {
   SESSIONS, ATTEMPTS, SUBMISSIONS, PRACTICE_TAG, toDate, loadExamKeys, submitAttempt, errorText,
 } from '../exam-data.js';
 import { reviewList } from './exam.js';
+import { quizResultsBetween, quizTitle } from '../quiz-results.js';
 
 const TOPICS = 'edu_topics';
 const GREEN = '#1C3A1C';
@@ -64,6 +65,18 @@ export function openAdminExams() {
     let sessions = null;
     let counts = new Map(); // sessionId → { started, submitted }
     const body = h('div', { class: 'body-inner', style: { paddingBottom: '96px' } }, spinner());
+    // Вкладки: «Сесії» (іспити) і «Пробні тести» (історія самостійної роботи)
+    let current = 'sessions';
+    let practice = null;
+    const host = h('div', { class: 'body' }, body);
+    const fab = h('button', { class: 'fab', title: 'Нова сесія', onClick: () => create() }, icon('add'));
+    const tabs = h('div', { class: 'subtabs' }, [['sessions', 'list_alt', 'Сесії'], ['practice', 'history', 'Пробні тести']]
+      .map(([id, ic, label]) => h('button', { class: id === current ? 'active' : '', 'data-id': id, onClick: () => {
+        current = id;
+        [...tabs.children].forEach((b) => b.classList.toggle('active', b.dataset.id === current));
+        fab.hidden = current !== 'sessions';
+        clear(host).append(current === 'sessions' ? body : (practice ??= quizResultsPanel()));
+      } }, icon(ic), label)));
 
     const fail = (e) => clear(body).append(emptyState('error_outline', 'Помилка завантаження', errorText(e)));
     const offSessions = onSnapshot(query(collection(db, SESSIONS), orderBy('createdAt', 'desc')),
@@ -161,9 +174,83 @@ export function openAdminExams() {
 
     return h('div', { class: 'page', style: { background: 'var(--bg)' } },
       appBar('Управління іспитами', { back: ctx.pop, cls: 'brown' }),
-      h('div', { class: 'body' }, body),
-      h('button', { class: 'fab', title: 'Нова сесія', onClick: create }, icon('add')));
+      tabs, host, fab);
   });
+}
+
+// ── Пробні тести (ТЗ 4): фільтр за групою й датою, таблиця, CSV ─────────────
+const QUIZ_CSV_HEADER = ['№', 'Дата', 'ПІБ', 'Група', 'Пошта', 'Тест', 'Вид', 'Правильних', 'З', 'Відсоток'];
+
+function quizResultsPanel() {
+  const day = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const today = new Date();
+  const from = h('input', { type: 'date', value: day(new Date(today.getTime() - 6 * 864e5)) });
+  const to = h('input', { type: 'date', value: day(today) });
+  const group = h('select', {}, h('option', { value: '' }, 'Усі групи'));
+  const search = h('input', { type: 'search', placeholder: 'ПІБ або пошта' });
+  const out = h('div', {}, spinner());
+  let rows = [];
+
+  const shown = () => {
+    const g = group.value;
+    const q = search.value.trim().toLowerCase();
+    return rows.filter((r) => (!g || (r.group || '') === g)
+      && (!q || `${r.fullName} ${r.email}`.toLowerCase().includes(q)));
+  };
+  const draw = () => {
+    const list = shown();
+    clear(out);
+    if (!list.length) { out.append(emptyState('history', 'Немає результатів за цими фільтрами')); return; }
+    const students = new Set(list.map((r) => r.uid)).size;
+    const avg = Math.round(list.reduce((a, r) => a + (r.percent ?? 0), 0) / list.length);
+    out.append(
+      h('div', { class: 's', style: { margin: '4px 0 8px' } }, `Записів: ${list.length} · студентів: ${students} · середній відсоток: ${avg}%`),
+      h('div', { class: 'exam-table-wrap' }, h('table', { class: 'exam-table' },
+        h('thead', {}, h('tr', {}, QUIZ_CSV_HEADER.map((x) => h('th', {}, x)))),
+        h('tbody', {}, list.map((r, i) => h('tr', {},
+          h('td', {}, String(i + 1)), h('td', {}, fmtDateTime(r.createdAt) || '—'), h('td', { style: { fontWeight: 600 } }, r.fullName || '—'),
+          h('td', {}, r.group || '—'), h('td', {}, r.email || '—'), h('td', {}, quizTitle(r)),
+          h('td', {}, r.kind === 'audio' ? 'аудіо' : 'теорія'), h('td', {}, String(r.correct)), h('td', {}, String(r.total)),
+          h('td', { style: { fontWeight: 700, color: r.percent >= 75 ? '#2E7D32' : r.percent >= 50 ? '#F57F17' : '#C62828' } }, `${r.percent}%`)))))));
+  };
+  const load = async () => {
+    const a = new Date(`${from.value}T00:00`);
+    const b = new Date(`${to.value}T00:00`);
+    if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime()) || a > b) { toast('Перевірте дати', 'err'); return; }
+    b.setDate(b.getDate() + 1); // «до» включно
+    clear(out).append(spinner());
+    try {
+      rows = await quizResultsBetween(a, b);
+      const keep = group.value;
+      const groups = [...new Set(rows.map((r) => r.group).filter(Boolean))].sort((x, y) => x.localeCompare(y, 'uk'));
+      clear(group).append(h('option', { value: '' }, 'Усі групи'), ...groups.map((g) => h('option', { value: g, selected: g === keep }, g)));
+      draw();
+    } catch (e) { clear(out).append(emptyState('error_outline', 'Помилка завантаження', errorText(e))); }
+  };
+  const exportCsv = () => {
+    const list = shown();
+    if (!list.length) { toast('Немає що експортувати', 'err'); return; }
+    const data = list.map((r, i) => [i + 1, fmtDateTime(r.createdAt), r.fullName, r.group, r.email, quizTitle(r),
+      r.kind === 'audio' ? 'аудіо' : 'теорія', r.correct, r.total, r.percent]);
+    const blob = new Blob([toCsv([QUIZ_CSV_HEADER, ...data])], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = h('a', { href: url, download: `Пробні_тести_${from.value}_${to.value}${group.value ? `_${group.value}` : ''}.csv`, style: { display: 'none' } });
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  };
+  [from, to].forEach((el) => el.addEventListener('change', load));
+  group.addEventListener('change', draw);
+  search.addEventListener('input', draw);
+  load();
+
+  const f = (label, el) => h('label', { class: 'field', style: { marginBottom: '8px' } }, h('span', {}, label), el);
+  return h('div', { class: 'body-inner', style: { maxWidth: 'none' } },
+    h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '8px', alignItems: 'end' } },
+      f('Від', from), f('До', to), f('Група', group), f('Пошук', search),
+      h('button', { class: 'btn', style: { marginBottom: '8px' }, onClick: exportCsv }, icon('download'), 'CSV')),
+    out);
 }
 
 // ── Створення / редагування сесії ───────────────────────────────────────────

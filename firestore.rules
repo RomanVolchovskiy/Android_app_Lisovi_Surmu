@@ -204,6 +204,22 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // ── Результати пробних тестів (самостійна робота практики) ─────────
+    // Свій запис створює лише сам студент (uid = свій, серверний час);
+    // читає власник і адміністратор; змінює й видаляє лише адміністратор.
+    match /quiz_results/{id} {
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.kind in ['theory', 'audio']
+        && request.resource.data.correct is int
+        && request.resource.data.total is int
+        && request.resource.data.correct >= 0
+        && request.resource.data.correct <= request.resource.data.total;
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow update, delete: if isAdmin();
+    }
+
     // ── Дихальна гімнастика: журнал виконань студента ──────────────────
     // Свій запис створює лише сам студент (uid = свій); читає власник і
     // адміністратор; змінює й видаляє лише адміністратор.
@@ -232,10 +248,10 @@ service cloud.firestore {
     // й іспитові роботи тут виключено: для них діють правила вище (правила
     // Firestore об'єднуються через «або», тож інакше вони б їх послабили).
     match /{collection}/{document=**} {
-      allow read: if !(collection in ['users', 'access_codes', 'app_access', 'exam_sessions', 'exam_attempts', 'exam_submissions', 'breathing_sessions', 'pokit_sessions']);
+      allow read: if !(collection in ['users', 'access_codes', 'app_access', 'exam_sessions', 'exam_attempts', 'exam_submissions', 'quiz_results', 'breathing_sessions', 'pokit_sessions']);
       allow write: if adminOnly(collection)
                    ? isAdmin()
-                   : signedIn() && !(collection in ['users', 'access_codes', 'app_access', 'exam_attempts', 'exam_submissions', 'breathing_sessions', 'pokit_sessions']);
+                   : signedIn() && !(collection in ['users', 'access_codes', 'app_access', 'exam_attempts', 'exam_submissions', 'quiz_results', 'breathing_sessions', 'pokit_sessions']);
     }
   }
 }

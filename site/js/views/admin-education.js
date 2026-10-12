@@ -1,5 +1,8 @@
 // Управління навчанням (AdminEducationScreen): теми, навчальні матеріали,
-// флеш-картки, питання тестів. Ті самі колекції й поля, що в EducationService.
+// флеш-картки, питання тестів, план навчання. Той самий екран керує й
+// практичними темами (practical_topics / practical_materials, як
+// PracticalService у додатку) — див. KINDS. Ті самі колекції й поля, що в
+// EducationService / StudyPlanService.
 import { h, icon, toast, pushScreen, appBar, confirmDialog, pickFiles, clear, spinner, emptyState, openDialog } from '../ui.js';
 import { db, collection, doc, getDocs, setDoc, deleteDoc, query, where, writeBatch } from '../firebase.js';
 import { uploadMedia, youTubeId, AUDIO_EXT, IMAGE_EXT, VIDEO_EXT } from '../data.js';
@@ -7,7 +10,7 @@ import { invalidateEducationCache } from './education.js';
 import { parseCsvLine, parseCsvFile, parseQuestionRow, parseCardRow, importId, bySortOrder } from '../csv-import.js';
 
 const TOPICS = 'edu_topics';
-const MATERIALS = 'edu_learning_materials';
+const PLAN = 'study_plan';
 const FLASHCARDS = 'edu_flashcards';
 const QUESTIONS = 'edu_test_questions';
 
@@ -21,12 +24,29 @@ const MATERIAL_TYPES = [
 ];
 const UPLOAD_EXT = { video: VIDEO_EXT, audio: AUDIO_EXT, image: IMAGE_EXT, infographic: IMAGE_EXT };
 
-const TABS = [
-  { id: 'topics', icon: 'topic', label: 'Теми' },
-  { id: 'materials', icon: 'menu_book', label: 'Матеріали' },
-  { id: 'cards', icon: 'style', label: 'Флеш-картки' },
-  { id: 'tests', icon: 'quiz', label: 'Тести' },
-];
+const TAB = {
+  topics: { icon: 'topic', label: 'Теми' },
+  materials: { icon: 'menu_book', label: 'Матеріали' },
+  cards: { icon: 'style', label: 'Флеш-картки' },
+  tests: { icon: 'quiz', label: 'Тести' },
+  plan: { icon: 'checklist', label: 'План навчання' },
+};
+
+// Теоретичний і практичний розділи відрізняються лише колекціями й вкладками
+const KINDS = {
+  theory: {
+    title: 'Управління навчанням', topics: TOPICS, materials: 'edu_learning_materials',
+    topicPrefix: 'topic', materialPrefix: 'lm', tabs: ['topics', 'materials', 'cards', 'tests', 'plan'], hiddenFlag: true,
+  },
+  practical: {
+    title: 'Практичні матеріали', topics: 'practical_topics', materials: 'practical_materials',
+    topicPrefix: 'pt', materialPrefix: 'pm', tabs: ['topics', 'materials', 'plan'], testLinks: true,
+  },
+};
+
+// Рівні й типи плану — як StudyPlanEntry у додатку
+const LEVELS = [['basic', 'Базовий рівень'], ['standard', 'Стандартний рівень'], ['professional', 'Професійний рівень'], ['expert', 'Експертний рівень']];
+const TOPIC_TYPES = { theoretical: 'Теоретична', practical: 'Практична' };
 
 async function load(name, topicId) {
   const q = topicId ? query(collection(db, name), where('topicId', '==', topicId)) : collection(db, name);
@@ -73,20 +93,21 @@ const rowActions = (onEdit, onDelete) => [
   h('button', { class: 'iconbtn', style: { color: '#F44336' }, title: 'Видалити', onClick: onDelete }, icon('delete')),
 ];
 
-export function openAdminEducation() {
+/** kind: 'theory' — теми, матеріали, картки, тести; 'practical' — практичні теми й матеріали. */
+export function openAdminEducation(kind = 'theory') {
+  const cfg = KINDS[kind];
   pushScreen(({ pop }) => {
     let current = 'topics';
     let topics = [];
     let selectedTopicId = null;
     const body = h('div', { class: 'body-inner' });
-    const tabs = h('div', { class: 'subtabs scroll' }, TABS.map((t) => h('button', {
-      class: t.id === current ? 'active' : '', 'data-id': t.id,
-      onClick: () => { current = t.id; [...tabs.children].forEach((b) => b.classList.toggle('active', b.dataset.id === current)); render(); },
-    }, icon(t.icon), t.label)));
+    const tabs = h('div', { class: 'subtabs scroll' }, cfg.tabs.map((id) => h('button', {
+      class: id === current ? 'active' : '', 'data-id': id,
+      onClick: () => { current = id; [...tabs.children].forEach((b) => b.classList.toggle('active', b.dataset.id === current)); render(); },
+    }, icon(TAB[id].icon), TAB[id].label)));
 
     const reloadTopics = async () => {
-      topics = await load(TOPICS);
-      topics.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+      topics = await load(cfg.topics);
       if (!topics.some((t) => t.id === selectedTopicId)) selectedTopicId = topics[0]?.id ?? null;
     };
 
@@ -94,7 +115,7 @@ export function openAdminEducation() {
       clear(body).append(spinner());
       try {
         if (!topics.length) await reloadTopics();
-        const view = { topics: topicsTab, materials: materialsTab, cards: cardsTab, tests: testsTab }[current];
+        const view = { topics: topicsTab, materials: materialsTab, cards: cardsTab, tests: testsTab, plan: planTab }[current];
         clear(body).append(await view());
       } catch (e) { clear(body).append(emptyState('error_outline', 'Помилка завантаження', e.message)); }
     };
@@ -125,7 +146,7 @@ export function openAdminEducation() {
             t.description ? h('div', { class: 's' }, t.description) : null),
             rowActions(() => draw(t.id), async () => {
               if (!await confirmDialog('Видалити тему?', `Видалити «${t.name}»? Матеріали теми залишаться в базі без теми.`, { okLabel: 'Видалити', cancelLabel: 'Скасувати', danger: true })) return;
-              if (await write(() => deleteDoc(doc(db, TOPICS, t.id)), 'Тему видалено')) { await reloadTopics(); draw(); }
+              if (await write(() => deleteDoc(doc(db, cfg.topics, t.id)), 'Тему видалено')) { await reloadTopics(); draw(); }
             })));
         });
       };
@@ -134,7 +155,7 @@ export function openAdminEducation() {
         [list[i], list[i + dir]] = [list[i + dir], list[i]];
         const ok = await write(() => {
           const batch = writeBatch(db);
-          list.forEach((t, idx) => batch.update(doc(db, TOPICS, t.id), { sortOrder: idx }));
+          list.forEach((t, idx) => batch.update(doc(db, cfg.topics, t.id), { sortOrder: idx }));
           return batch.commit();
         });
         if (ok) { await reloadTopics(); draw(); }
@@ -144,22 +165,40 @@ export function openAdminEducation() {
         const desc = textarea(t?.description, 'Короткий опис');
         const image = input(t?.imageUrl ?? '', 'https://…');
         const hidden = h('input', { type: 'checkbox', checked: t?.hidden === true });
+        // Практична тема: теоретичні теми, пробні тести яких — «тест дня»
+        const tests = new Set(Array.isArray(t?.testTopicIds) ? t.testTopicIds : []);
+        const testBoxes = h('div', { class: 's' }, 'Завантаження тем…');
+        if (cfg.testLinks) {
+          load(TOPICS).then((all) => {
+            const visible = all.filter((x) => x.hidden !== true);
+            clear(testBoxes).append(...(visible.length ? visible.map((x) => {
+              const cb = h('input', { type: 'checkbox', checked: tests.has(x.id) });
+              cb.addEventListener('change', () => { if (cb.checked) tests.add(x.id); else tests.delete(x.id); });
+              return h('label', { class: 'dk-row', style: { gap: '8px', padding: '3px 0', cursor: 'pointer', fontSize: '14px', color: 'var(--text, inherit)' } }, cb, x.name);
+            }) : ['Теоретичних тем ще немає']));
+          }).catch((e) => { testBoxes.textContent = `Не вдалося завантажити теми: ${e.message}`; });
+        }
         return formBox(t ? 'Редагувати тему' : 'Нова тема', [
           field('Назва *', name), field('Опис', desc), field('Зображення (посилання)', image),
-          h('label', { class: 'dk-row', style: { gap: '8px', fontSize: '14px', marginBottom: '6px', cursor: 'pointer' } }, hidden, 'Прихована (лише для іспитів)'),
-          h('div', { class: 's', style: { marginBottom: '12px' } }, 'Прихованої теми не видно в теорії, флеш-картках і пробних тестах сайту; її питання можна брати в іспит.'),
+          cfg.hiddenFlag ? [
+            h('label', { class: 'dk-row', style: { gap: '8px', fontSize: '14px', marginBottom: '6px', cursor: 'pointer' } }, hidden, 'Прихована (лише для іспитів)'),
+            h('div', { class: 's', style: { marginBottom: '12px' } }, 'Прихованої теми не видно в теорії, флеш-картках і пробних тестах сайту; її питання можна брати в іспит.'),
+          ] : null,
+          cfg.testLinks ? h('div', { style: { marginBottom: '12px' } },
+            h('div', { class: 's', style: { marginBottom: '4px' } }, 'Пробний тест дня (кнопка «Пройти тест» у темі)'), testBoxes) : null,
         ], async () => {
           if (!name.value.trim()) { toast('Введіть назву теми', 'err'); return; }
           const data = {
-            id: t?.id || `topic_${Date.now()}`,
+            id: t?.id || `${cfg.topicPrefix}_${Date.now()}`,
             name: name.value.trim(),
             description: desc.value.trim(),
             imageUrl: image.value.trim() || null,
             sortOrder: t?.sortOrder ?? topics.length,
-            hidden: hidden.checked,
+            ...(cfg.hiddenFlag ? { hidden: hidden.checked } : {}),
+            ...(cfg.testLinks ? { testTopicIds: [...tests] } : {}),
           };
           // merge: поля, яких форма не знає (зокрема з додатку), не стираються
-          if (await write(() => setDoc(doc(db, TOPICS, data.id), data, { merge: true }), t ? 'Тему оновлено' : 'Тему додано')) { await reloadTopics(); draw(); }
+          if (await write(() => setDoc(doc(db, cfg.topics, data.id), data, { merge: true }), t ? 'Тему оновлено' : 'Тему додано')) { await reloadTopics(); draw(); }
         }, () => draw());
       };
       draw();
@@ -174,7 +213,7 @@ export function openAdminEducation() {
       let items = [];
       const refresh = async () => {
         clear(list).append(spinner());
-        items = await load(MATERIALS, selectedTopicId);
+        items = await load(cfg.materials, selectedTopicId);
         draw();
       };
       const draw = (formFor) => {
@@ -190,7 +229,7 @@ export function openAdminEducation() {
               h('a', { class: 'iconbtn dim', href: m.driveUrl, target: '_blank', rel: 'noopener', title: 'Відкрити' }, icon('open_in_new')),
               rowActions(() => draw(m.id), async () => {
                 if (!await confirmDialog('Видалити матеріал?', `Видалити «${m.name}»?`, { okLabel: 'Видалити', cancelLabel: 'Скасувати', danger: true })) return;
-                if (await write(() => deleteDoc(doc(db, MATERIALS, m.id)), 'Матеріал видалено')) refresh();
+                if (await write(() => deleteDoc(doc(db, cfg.materials, m.id)), 'Матеріал видалено')) refresh();
               })));
           });
         }
@@ -231,7 +270,7 @@ export function openAdminEducation() {
             else if (gd) thumbnailUrl = `https://drive.google.com/thumbnail?id=${gd[1]}&sz=w480`;
           }
           const data = {
-            id: m?.id || `lm_${Date.now()}`,
+            id: m?.id || `${cfg.materialPrefix}_${Date.now()}`,
             topicId: selectedTopicId,
             type,
             name: name.value.trim(),
@@ -239,7 +278,7 @@ export function openAdminEducation() {
             mediaType: m?.mediaType ?? null,
             thumbnailUrl,
           };
-          if (await write(() => setDoc(doc(db, MATERIALS, data.id), data), m ? 'Матеріал оновлено' : 'Матеріал додано')) refresh();
+          if (await write(() => setDoc(doc(db, cfg.materials, data.id), data), m ? 'Матеріал оновлено' : 'Матеріал додано')) refresh();
         }, () => draw());
       };
       wrap.append(topicSelect(refresh), list);
@@ -382,11 +421,89 @@ export function openAdminEducation() {
       return wrap;
     }
 
+    // ── План навчання (study_plan) ──────────────────────────────────────────
+    // Записи: тема (теоретична або практична), рівень, години. Порядок — поле
+    // order (його читає додаток) і sortOrder (сайт); пишемо обидва.
+    async function planTab() {
+      const wrap = h('div');
+      let plan = [];
+      let theory = [];
+      let practical = [];
+      const nameOf = (e) => ((e.topicType === 'practical' ? practical : theory).find((x) => x.id === e.topicId)?.name) || '(тему видалено)';
+      const refresh = async () => {
+        clear(wrap).append(spinner());
+        [plan, theory, practical] = await Promise.all([load(PLAN), load(TOPICS), load('practical_topics')]);
+        draw();
+      };
+      const levelOf = (e) => (LEVELS.some(([k]) => k === e.level) ? e.level : '');
+      const renumber = (list) => write(() => {
+        const batch = writeBatch(db);
+        list.forEach((e, i) => batch.update(doc(db, PLAN, e.id), { order: i, sortOrder: i }));
+        return batch.commit();
+      });
+      // Переміщення в межах рівня; загальний порядок — рівні один за одним
+      const move = async (e, dir) => {
+        const groups = [...LEVELS.map(([k]) => plan.filter((x) => levelOf(x) === k)), plan.filter((x) => !levelOf(x))];
+        const g = groups.find((list) => list.includes(e));
+        const i = g.indexOf(e);
+        [g[i], g[i + dir]] = [g[i + dir], g[i]];
+        if (await renumber(groups.flat())) refresh();
+      };
+      const form = (e) => {
+        const topic = h('select', {},
+          h('optgroup', { label: 'Теоретичні теми' }, theory.map((x) => h('option', { value: `theoretical:${x.id}`, selected: e?.topicType !== 'practical' && e?.topicId === x.id }, x.name))),
+          h('optgroup', { label: 'Практичні теми' }, practical.map((x) => h('option', { value: `practical:${x.id}`, selected: e?.topicType === 'practical' && e?.topicId === x.id }, x.name))));
+        const level = h('select', {}, LEVELS.map(([k, l]) => h('option', { value: k, selected: (e?.level || 'basic') === k }, l)));
+        const hours = input(e?.hours ?? 2, '', 'number');
+        return formBox(e ? 'Редагувати запис плану' : 'Новий запис плану', [
+          field('Тема *', topic), field('Рівень', level), field('Години', hours),
+        ], async () => {
+          if (!topic.value) { toast('Оберіть тему', 'err'); return; }
+          const [topicType, ...rest] = topic.value.split(':');
+          const n = parseInt(hours.value, 10);
+          const order = e ? e.order ?? e.sortOrder ?? 0 : plan.reduce((m, x) => Math.max(m, (x.order ?? x.sortOrder ?? -1) + 1), plan.length);
+          const data = {
+            id: e?.id || `sp_${Date.now()}`, topicId: rest.join(':'), topicType, level: level.value,
+            hours: Number.isNaN(n) || n < 0 ? 0 : n, order, sortOrder: order,
+          };
+          if (await write(() => setDoc(doc(db, PLAN, data.id), data, { merge: true }), e ? 'Запис оновлено' : 'Запис додано')) refresh();
+        }, () => draw());
+      };
+      const draw = (formFor) => {
+        clear(wrap);
+        if (!theory.length && !practical.length) { wrap.append(emptyState('topic', 'Спершу додайте теми', 'Теоретичні або практичні')); return; }
+        if (formFor === null) wrap.append(form(null));
+        else wrap.append(h('button', { class: 'btn brown block', style: { marginBottom: '12px' }, onClick: () => draw(null) }, icon('add'), 'Додати запис плану'));
+        const total = plan.reduce((a, e) => a + (Number(e.hours) || 0), 0);
+        wrap.append(h('div', { class: 's', style: { marginBottom: '8px' } }, `Записів: ${plan.length} · годин: ${total}. План спільний для теоретичного й практичного розділів.`));
+        for (const [k, label] of [...LEVELS, ['', 'Без рівня']]) {
+          const list = plan.filter((e) => levelOf(e) === k);
+          if (!list.length) continue;
+          wrap.append(h('div', { class: 'form-section' }, `${label} · ${list.reduce((a, e) => a + (Number(e.hours) || 0), 0)} год`));
+          list.forEach((e, i) => {
+            if (formFor === e.id) { wrap.append(form(e)); return; }
+            wrap.append(h('div', { class: 'tile' },
+              h('div', { style: { display: 'flex', flexDirection: 'column' } },
+                h('button', { class: 'iconbtn dim', title: 'Вище', disabled: i === 0, onClick: () => move(e, -1) }, icon('arrow_upward')),
+                h('button', { class: 'iconbtn dim', title: 'Нижче', disabled: i === list.length - 1, onClick: () => move(e, 1) }, icon('arrow_downward'))),
+              h('div', { class: 'grow' }, h('div', { class: 't' }, nameOf(e)),
+                h('div', { class: 's' }, `${TOPIC_TYPES[e.topicType] ?? 'Теоретична'} · ${e.hours || 0} год`)),
+              rowActions(() => draw(e.id), async () => {
+                if (!await confirmDialog('Видалити запис?', `Прибрати «${nameOf(e)}» з плану? Сама тема лишиться.`, { okLabel: 'Видалити', cancelLabel: 'Скасувати', danger: true })) return;
+                if (await write(() => deleteDoc(doc(db, PLAN, e.id)), 'Запис видалено')) refresh();
+              })));
+          });
+        }
+      };
+      refresh();
+      return wrap;
+    }
+
     render();
     return h('div', { class: 'page', style: { background: 'var(--bg)' } },
-      appBar('Управління навчанням', { back: pop, cls: 'brown', actions: [
+      appBar(cfg.title, { back: pop, cls: 'brown', actions: kind === 'theory' ? [
         h('button', { class: 'iconbtn', title: 'Перевірити якість даних', onClick: () => openDataCheck() }, icon('cleaning_services')),
-      ] }),
+      ] : [] }),
       tabs,
       h('div', { class: 'body' }, body));
   });

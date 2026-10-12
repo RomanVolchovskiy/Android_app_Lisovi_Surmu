@@ -11,7 +11,8 @@ import { openMetronome } from './trainer-metronome.js';
 import { openExamEntry } from './exam.js';
 import { breathGymTrainer } from './trainer-breath-gym.js';
 import { pokitTrainer } from './trainer-pokit.js';
-import { shuffle, permuteOptions, signalPool, buildAudioItems } from '../quiz-core.js';
+import { shuffle, permuteOptions, signalPool, buildAudioItems, fmtDateTime } from '../quiz-core.js';
+import { saveQuizResult, myQuizResults, quizTitle } from '../quiz-results.js';
 import { bySortOrder } from '../csv-import.js';
 
 /** Тег сигналів, які студенти вивчають на навчальній практиці (ТЗ 3.6). */
@@ -90,9 +91,23 @@ const MATERIAL_TYPES = [
 function openTopic(topic, materialsCol) {
   pushScreen(({ pop }) => {
     const body = h('div', { class: 'body-inner' }, spinner());
-    const page = h('div', { class: 'page', style: { background: 'var(--bg)' } }, appBar(topic.name, { back: pop, small: true }), h('div', { class: 'body' }, body));
+    const tests = h('div');
+    const page = h('div', { class: 'page', style: { background: 'var(--bg)' } }, appBar(topic.name, { back: pop, small: true }), h('div', { class: 'body' }, tests, body));
     col(materialsCol, 'topicId', topic.id).then((materials) => fillTopic(body, materials))
       .catch((e) => clear(body).append(emptyState('error_outline', 'Помилка завантаження', e.message)));
+    // Практична тема може посилатися на теоретичні теми з пробними тестами дня
+    if (Array.isArray(topic.testTopicIds) && topic.testTopicIds.length) {
+      visibleTopics().then((all) => {
+        const linked = topic.testTopicIds.map((id) => all.find((t) => t.id === id)).filter(Boolean);
+        if (!linked.length) return;
+        tests.className = 'body-inner';
+        tests.style.paddingBottom = '0';
+        tests.append(h('div', { class: 'tile', style: { display: 'block', borderLeft: '4px solid #1565C0' } },
+          h('div', { class: 't', style: { marginBottom: '6px' } }, '📝 Пробний тест дня'),
+          ...linked.map((t) => h('button', { class: 'btn text', style: { justifyContent: 'flex-start', width: '100%' }, onClick: () => startTheoryQuiz(t, false) },
+            icon('quiz'), t.name))));
+      }).catch((e) => console.warn('test topics', e));
+    }
     return page;
   });
 }
@@ -238,7 +253,7 @@ async function testsTab() {
   const practice = signalPool(await waitForSignals(), { tag: PRACTICE_TAG }).length >= 4
     ? levelBtn({ tag: PRACTICE_TAG }, '📯 Сигнали практики', '#5D4037') : null;
   return h('div', {},
-    card('quiz', 'Пробне тестування', 'Перевір знання без збереження результатів', '#2F4F2F',
+    card('quiz', 'Пробне тестування', 'Результати зберігаються в «Мої результати»', '#2F4F2F',
       h('div', {},
         h('div', { style: { fontWeight: 600, margin: '6px 0' } }, '🎧 Аудіо тест — рівень складності'),
         h('div', { style: { display: 'flex', flexDirection: 'column' } },
@@ -247,8 +262,29 @@ async function testsTab() {
           levelBtn(null, '🎯 Усі сигнали', 'inherit')),
         h('div', { style: { fontWeight: 600, margin: '10px 0 6px' } }, '📖 Теоретичний тест'),
         h('button', { class: 'btn text', style: { justifyContent: 'flex-start' }, onClick: openTheoryTopics }, icon('menu_book'), 'Обрати тему'))),
+    card('history', 'Мої результати', 'Останні 50 пробних тестів — для щоденника практики', '#5D4037',
+      h('button', { class: 'btn text', style: { justifyContent: 'flex-start' }, onClick: openMyResults }, icon('list_alt'), 'Переглянути')),
     card('school', 'Іспит', 'Введіть код сесії, наданий адміністратором', '#1565C0',
       h('button', { class: 'btn', onClick: () => openExamEntry() }, 'Ввести код сесії')));
+}
+
+function openMyResults() {
+  pushScreen(({ pop }) => {
+    const body = h('div', { class: 'body-inner' }, spinner());
+    myQuizResults().then((rows) => {
+      clear(body);
+      if (!rows.length) { body.append(emptyState('history', 'Ще немає результатів', 'Пройдіть пробний тест — результат збережеться тут')); return; }
+      rows.forEach((r) => {
+        const color = r.percent >= 75 ? '#2E7D32' : r.percent >= 50 ? '#F57F17' : '#C62828';
+        body.append(h('div', { class: 'tile', style: { borderLeft: `4px solid ${color}` } },
+          h('div', { class: 'grow' }, h('div', { class: 't', style: { fontSize: '14px' } }, quizTitle(r)),
+            h('div', { class: 's' }, `${fmtDateTime(r.createdAt) || '—'} · ${r.correct} з ${r.total}`)),
+          h('b', { style: { color, fontSize: '18px' } }, `${r.percent}%`)));
+      });
+    }).catch((e) => clear(body).append(emptyState('error_outline', 'Не вдалося завантажити', e.code === 'permission-denied' ? 'Немає доступу. Перевірте, що ви увійшли і підтвердили пошту' : e.message)));
+    return h('div', { class: 'page', style: { background: 'var(--bg)' } },
+      appBar('Мої результати', { back: pop, small: true }), h('div', { class: 'body' }, body));
+  });
 }
 
 /**
@@ -267,7 +303,13 @@ function startAudioTest(filter) {
     const sg = byId.get(it.signalId);
     return { audioUrl: sg.audioUrl, options: it.options, correct: it.options.indexOf(sg.name), answer: null };
   });
-  runQuiz(filter?.tag ? 'Аудіо тест: сигнали практики' : 'Аудіо тест', build, (q) => h('div', { style: { textAlign: 'center', margin: '12px 0' } },
+  const LEVEL = { easy: 'легкий рівень', medium: 'середній рівень', hard: 'важкий рівень' };
+  const meta = {
+    kind: 'audio', topicId: null,
+    topicName: filter == null ? 'усі сигнали' : typeof filter === 'object' ? 'сигнали практики' : LEVEL[filter] ?? filter,
+    audioFilter: filter == null ? 'all' : typeof filter === 'object' ? `tag:${filter.tag}` : filter,
+  };
+  runQuiz(filter?.tag ? 'Аудіо тест: сигнали практики' : 'Аудіо тест', build, meta, (q) => h('div', { style: { textAlign: 'center', margin: '12px 0' } },
     h('button', { class: 'play-big', style: { margin: '0 auto' }, onClick: () => audio.play(q.audioUrl).catch((e) => toast(`Помилка відтворення: ${e.message}`, 'err')) }, icon('play_arrow')),
     h('div', { class: 's', style: { color: 'var(--grey-600)', marginTop: '8px' } }, 'Прослухайте сигнал і оберіть його назву')));
 }
@@ -282,21 +324,27 @@ async function openTheoryTopics() {
       appBar('Пробний теоретичний тест', { back: pop, small: true }),
       h('div', { class: 'body' }, h('div', { class: 'body-inner' },
         h('label', { class: 'dk-row', style: { gap: '8px', fontSize: '14px', margin: '0 0 12px', cursor: 'pointer' } }, mix, 'Перемішати питання'),
-        topicList(topics, 'menu_book', 'Теми ще не додані', async (t) => {
-          const qs = await col('edu_test_questions', 'topicId', t.id);
-          if (!qs.length) { toast('До цієї теми ще не додані питання'); return; }
-          const shuffleQuestions = mix.checked;
-          const build = () => (shuffleQuestions ? shuffle(qs) : qs).map((q) => {
-            const p = permuteOptions(q);
-            return { text: q.question, options: p.options, correct: p.correct, explanation: q.explanation || null, answer: null };
-          });
-          runQuiz(t.name, build, (q) => h('div', { style: { fontSize: '16px', fontWeight: 600, margin: '12px 0', lineHeight: 1.5 } }, q.text));
-        }))));
+        topicList(topics, 'menu_book', 'Теми ще не додані', (t) => startTheoryQuiz(t, mix.checked)))));
   });
 }
 
-/** Спільний екран тесту: питання → варіанти → результат. build() дає новий набір (і для «Пройти знову»). */
-function runQuiz(title, build, renderPrompt) {
+/** Пробний теоретичний тест теми; варіанти перемішуються при кожному запуску. */
+async function startTheoryQuiz(t, shuffleQuestions) {
+  const qs = await col('edu_test_questions', 'topicId', t.id);
+  if (!qs.length) { toast('До цієї теми ще не додані питання'); return; }
+  const build = () => (shuffleQuestions ? shuffle(qs) : qs).map((q) => {
+    const p = permuteOptions(q);
+    return { text: q.question, options: p.options, correct: p.correct, explanation: q.explanation || null, answer: null };
+  });
+  runQuiz(t.name, build, { kind: 'theory', topicId: t.id, topicName: t.name, audioFilter: null },
+    (q) => h('div', { style: { fontSize: '16px', fontWeight: 600, margin: '12px 0', lineHeight: 1.5 } }, q.text));
+}
+
+/**
+ * Спільний екран тесту: питання → варіанти → результат. build() дає новий
+ * набір (і для «Пройти знову»); кожне завершення записується в quiz_results.
+ */
+function runQuiz(title, build, meta, renderPrompt) {
   pushScreen((ctx) => {
     let questions = build();
     let i = 0;
@@ -325,6 +373,7 @@ function runQuiz(title, build, renderPrompt) {
     const result = () => {
       const correct = questions.filter((q) => q.answer === q.correct).length;
       const pct = Math.round(correct / questions.length * 100);
+      saveQuizResult(meta, correct, questions.length);
       body.append(
         h('div', { style: { textAlign: 'center', padding: '24px 0' } },
           h('div', { style: { fontSize: '56px', fontWeight: 700, color: 'var(--primary)' } }, `${pct}`),
