@@ -208,6 +208,23 @@ function readCache(uid) {
   } catch { return null; }
 }
 
+// ── Профіль студента (ПІБ і група — для іспитової відомості) ────────────────
+
+/** users/{uid}: fullName і group (порожні рядки, якщо ще не заповнено). */
+export async function getProfile() {
+  const user = auth.currentUser;
+  if (!user) return { fullName: '', group: '' };
+  const d = (await getDocFromServer(doc(db, 'users', user.uid))).data() || {};
+  return { fullName: d.fullName || '', group: d.group || '' };
+}
+
+/** Документ users/{uid} створює touchUser під час входу, тож тут лише оновлення. */
+export async function saveProfile({ fullName, group }) {
+  const user = auth.currentUser;
+  if (!user) throw new AccessError('Увійдіть в акаунт');
+  await updateDoc(doc(db, 'users', user.uid), { fullName: fullName.trim(), group: group.trim() });
+}
+
 // ── Коди доступу ─────────────────────────────────────────────────────────────
 
 const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // без схожих 0/O, 1/I/L

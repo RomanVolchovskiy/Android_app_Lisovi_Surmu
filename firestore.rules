@@ -112,15 +112,65 @@ service cloud.firestore {
         );
     }
 
+    // ── Іспити: сесії ───────────────────────────────────────────────────
+    // Студент читає одну сесію за відомим кодом (нові сесії мають id = код).
+    // Запит за полем code з limit(1) лишено для додатку 1.1.x і старих сесій
+    // (id = час створення); повний перелік сесій — лише адміністратор.
+    match /exam_sessions/{id} {
+      allow get: if signedIn();
+      allow list: if isAdmin() || (signedIn() && request.query.limit <= 1);
+      allow write: if isAdmin();
+    }
+
+    // ── Іспити: спроба студента на сайті ───────────────────────────────
+    // exam_attempts/{sessionId}_{uid}: одна на студента. Створити — лише
+    // свою, «в процесі», із серверним часом старту й поки сесія активна та
+    // у вікні доступності. Змінювати — лише свою й лише до здачі; uid,
+    // сесію й час старту змінити не можна. Видаляє (анулює) адміністратор.
+    match /exam_attempts/{attemptId} {
+      // resource == null: студент перевіряє, чи вже починав (документа ще немає)
+      allow get: if isAdmin() || (signedIn() && (resource == null || resource.data.uid == request.auth.uid));
+      allow list: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+
+      allow create: if signedIn()
+        && attemptId == request.resource.data.sessionId + '_' + request.auth.uid
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.status == 'in_progress'
+        && request.resource.data.startedAt == request.time
+        && request.resource.data.get('visibilityLeaves', 0) == 0
+        && examOpen(request.resource.data.sessionId);
+
+      allow update: if isAdmin()
+        || (signedIn()
+            && resource.data.uid == request.auth.uid
+            && resource.data.status == 'in_progress'
+            && request.resource.data.uid == resource.data.uid
+            && request.resource.data.sessionId == resource.data.sessionId
+            && request.resource.data.startedAt == resource.data.startedAt
+            && request.resource.data.status in ['in_progress', 'submitted']
+            && request.resource.data.get('visibilityLeaves', 0) >= resource.data.get('visibilityLeaves', 0));
+
+      allow delete: if isAdmin();
+    }
+
+    function examSession(sessionId) {
+      return get(/databases/$(database)/documents/exam_sessions/$(sessionId)).data;
+    }
+    function examOpen(sessionId) {
+      let s = examSession(sessionId);
+      return s.status == 'active'
+        && (s.get('startsAt', null) == null || s.startsAt <= request.time)
+        && (s.get('deadline', null) == null || s.deadline > request.time);
+    }
+
     // ── Іспити: роботу здає студент, оцінює адміністратор ──────────────
     match /exam_submissions/{id} {
-      // Один документ за відомим id може прочитати будь-хто залогінений
-      // (так клієнт перевіряє власну подану роботу). Повний перелік усіх
-      // робіт сесії ("list") — лише для адміністратора; студентському
-      // коду, який перевіряє «чи вже здавав» запитом з limit(1), теж
-      // дозволено, але вивантажити весь список результатів класу інакше
-      // не можна.
-      allow get: if signedIn();
+      // Роботу з сайту (є uid) читає лише її автор і адміністратор; старі
+      // роботи з додатку (без uid) — як раніше, будь-хто залогінений за id.
+      // Повний перелік робіт сесії ("list") — лише адміністратор; запит
+      // «чи вже здавав» з limit(1) лишено для додатку 1.1.x.
+      allow get: if isAdmin()
+        || (signedIn() && (resource == null || resource.data.get('uid', null) == null || resource.data.uid == request.auth.uid));
       allow list: if isAdmin() || (signedIn() && request.query.limit <= 1);
 
       // Створити роботу може будь-хто залогінений, але сервер вимагає,
@@ -136,8 +186,21 @@ service cloud.firestore {
         && request.resource.data.sessionId is string
         && request.resource.data.studentName is string
         && request.resource.data.studentName.size() > 0
-        && get(/databases/$(database)/documents/exam_sessions/$(request.resource.data.sessionId)).data.status == 'active';
+        && (
+          // з додатку: сесія активна
+          (request.resource.data.get('uid', null) == null
+            && examSession(request.resource.data.sessionId).status == 'active')
+          // з сайту: підсумок власної спроби, у тому самому батчі, що й її
+          // здача (id = id спроби) — дозволено й після закриття сесії
+          // (автоздача після закриття або дедлайну)
+          || (request.resource.data.get('uid', null) == request.auth.uid
+            && id == request.resource.data.sessionId + '_' + request.auth.uid
+            && getAfter(/databases/$(database)/documents/exam_attempts/$(id)).data.status == 'submitted'
+            && get(/databases/$(database)/documents/exam_attempts/$(id)).data.status == 'in_progress')
+        );
 
+      // Адміністратор: «Примусово здати» спробу студента
+      allow create: if isAdmin();
       allow update, delete: if isAdmin();
     }
 
@@ -169,10 +232,10 @@ service cloud.firestore {
     // й іспитові роботи тут виключено: для них діють правила вище (правила
     // Firestore об'єднуються через «або», тож інакше вони б їх послабили).
     match /{collection}/{document=**} {
-      allow read: if !(collection in ['users', 'access_codes', 'app_access', 'exam_submissions', 'breathing_sessions', 'pokit_sessions']);
+      allow read: if !(collection in ['users', 'access_codes', 'app_access', 'exam_sessions', 'exam_attempts', 'exam_submissions', 'breathing_sessions', 'pokit_sessions']);
       allow write: if adminOnly(collection)
                    ? isAdmin()
-                   : signedIn() && !(collection in ['users', 'access_codes', 'app_access', 'exam_submissions', 'breathing_sessions', 'pokit_sessions']);
+                   : signedIn() && !(collection in ['users', 'access_codes', 'app_access', 'exam_attempts', 'exam_submissions', 'breathing_sessions', 'pokit_sessions']);
     }
   }
 }

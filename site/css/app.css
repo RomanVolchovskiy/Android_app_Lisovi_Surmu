@@ -407,3 +407,20 @@ input[type=range].gold { width: 100%; accent-color: var(--gold); }
 .apk-note .mi { font-size: 16px; flex: none; }
 .auth-download-wrap .apk-note { color: rgba(255, 255, 255, .75); }
 .auth-download-wrap .apk-note .mi { color: var(--accent); }
+
+/* ── Відомість іспиту (admin-exams.js) ─────────────────────────────────────── */
+.exam-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; background: #fff; border-radius: 8px; border: 1px solid #ddd; }
+.exam-table { border-collapse: collapse; font-size: 13px; min-width: 100%; }
+.exam-table th, .exam-table td { padding: 8px 10px; border-bottom: 1px solid #eee; text-align: left; white-space: nowrap; }
+.exam-table th { background: #f3f1ec; font-size: 12px; color: var(--grey-700); position: sticky; top: 0; }
+.exam-table tbody tr:hover { background: rgba(28, 58, 28, .05); }
+#print-root { display: none; }
+@media print {
+  body.printing > *:not(#print-root) { display: none !important; }
+  body.printing #print-root { display: block; padding: 0; color: #000; }
+  #print-root h2 { margin: 0 0 4px; font-size: 16px; }
+  #print-root > div { font-size: 11px; margin-bottom: 8px; }
+  #print-root .exam-table { font-size: 10px; width: 100%; }
+  #print-root .exam-table th, #print-root .exam-table td { padding: 3px 4px; border: 1px solid #999; white-space: normal; }
+  #print-root .no-print, #print-root th:last-child { display: none; }
+}

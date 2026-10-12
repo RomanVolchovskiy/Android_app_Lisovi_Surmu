@@ -3,7 +3,7 @@
 import { h, icon, toast, openDialog, pushScreen, appBar, confirmDialog } from '../ui.js';
 import {
   getConfig, loadConfig, currentUser, signIn, register, resendVerification, reloadVerified, resetPassword, logout,
-  getStatus, onStatus, resolve, redeemCode, normalizeCode, allowed, daysLeft, fmtDate, AccessError,
+  getStatus, onStatus, resolve, redeemCode, normalizeCode, allowed, daysLeft, fmtDate, AccessError, getProfile, saveProfile,
 } from '../access.js';
 
 const errText = (e) => (e instanceof AccessError ? e.message : `Помилка: ${e?.message || e}`);
@@ -202,6 +202,26 @@ function describe(s) {
   }
 }
 
+// «Мої дані»: ПІБ і група потрібні для іспитової відомості (users/{uid}).
+function profileBlock() {
+  const fullName = h('input', { type: 'text', placeholder: 'Прізвище Ім’я', autocomplete: 'name', maxLength: 80 });
+  const group = h('input', { type: 'text', placeholder: 'Напр. ЛГс-32', maxLength: 20 });
+  const save = h('button', { class: 'btn block', disabled: true, onClick: async () => {
+    if (!fullName.value.trim() || !group.value.trim()) { toast('Заповніть прізвище, ім’я та групу', 'err'); return; }
+    save.disabled = true;
+    try { await saveProfile({ fullName: fullName.value, group: group.value }); toast('Дані збережено', 'ok'); }
+    catch (e) { toast(errText(e), 'err'); }
+    finally { save.disabled = false; }
+  } }, icon('save'), 'Зберегти');
+  getProfile().then((p) => { fullName.value = p.fullName; group.value = p.group; save.disabled = false; })
+    .catch(() => { save.disabled = false; });
+  return h('div', { class: 'tile', style: { display: 'block' } },
+    h('div', { class: 't', style: { marginBottom: '8px' } }, 'Мої дані'),
+    h('label', { class: 'field' }, h('span', {}, 'Прізвище та ім’я'), fullName),
+    h('label', { class: 'field' }, h('span', {}, 'Група'), group),
+    save);
+}
+
 export function openAccount() {
   pushScreen((ctx) => {
     const user = currentUser();
@@ -224,6 +244,7 @@ export function openAccount() {
           h('div', { style: { width: '44px', height: '44px', borderRadius: '50%', background: 'var(--primary)', color: '#fff', display: 'grid', placeItems: 'center' } }, icon('person')),
           h('div', { class: 'grow' }, h('div', { class: 't' }, user?.email || '—'), h('div', { class: 's' }, user?.emailVerified ? 'Пошту підтверджено' : 'Пошту не підтверджено'))),
         card,
+        profileBlock(),
         s?.kind !== 'corporate' ? h('button', { class: 'btn block', style: { marginBottom: '8px' }, onClick: () => openCodeDialog() }, icon('vpn_key'), 'Ввести код доступу') : null,
         h('button', { class: 'btn text block', style: { border: '1px solid var(--primary)', marginBottom: '8px' }, onClick: async () => {
           try { await resolve(); toast('Статус оновлено', 'ok'); } catch (e) { toast(errText(e), 'err'); }

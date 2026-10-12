@@ -11,6 +11,7 @@ import { openMetronome } from './trainer-metronome.js';
 import { openExamEntry } from './exam.js';
 import { breathGymTrainer } from './trainer-breath-gym.js';
 import { pokitTrainer } from './trainer-pokit.js';
+import { shuffle } from '../quiz-core.js';
 
 const cache = {};
 /** Скидає кеш — після змін в адмін-панелі навчання розділ підтягне свіжі дані. */
@@ -190,7 +191,7 @@ async function cardsTab() {
 }
 
 async function openFlashcards(topic) {
-  const cards = (await col('edu_flashcards', 'topicId', topic.id)).slice();
+  let cards = (await col('edu_flashcards', 'topicId', topic.id)).slice();
   if (!cards.length) { toast('До цієї теми ще не додані картки'); return; }
   pushScreen(({ pop }) => {
     let i = 0, shown = false;
@@ -215,7 +216,7 @@ async function openFlashcards(topic) {
         h('div', { style: { background: 'linear-gradient(135deg,#FFF8E7,#E8C87A)', border: '1.5px solid var(--gold)', borderRadius: '16px', padding: '28px 20px', minHeight: '220px', display: 'flex', flexDirection: 'column', justifyContent: 'center' } }, q, a),
         h('div', { style: { textAlign: 'center', marginTop: '16px' } }, showBtn),
         nav,
-        h('div', { style: { textAlign: 'center', marginTop: '12px' } }, h('button', { class: 'btn text', onClick: () => { i = 0; cards.sort(() => Math.random() - .5); render(); } }, icon('replay'), 'Повторити')))));
+        h('div', { style: { textAlign: 'center', marginTop: '12px' } }, h('button', { class: 'btn text', onClick: () => { i = 0; cards = shuffle(cards); render(); } }, icon('replay'), 'Повторити')))));
   });
 }
 
@@ -243,7 +244,6 @@ function startAudioTest(difficulty) {
   const withAudio = getSignals().filter((s) => s.audioUrl);
   const pool = difficulty ? withAudio.filter((s) => s.difficulty === difficulty) : withAudio;
   if (!pool.length) { toast('Немає сигналів з аудіо для цього рівня'); return; }
-  const shuffle = (a) => a.sort(() => Math.random() - .5);
   const picked = shuffle(pool.slice()).slice(0, 10);
   const names = withAudio.map((s) => s.name);
   const questions = picked.map((s) => {
