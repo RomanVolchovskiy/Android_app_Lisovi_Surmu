@@ -1,6 +1,18 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:hunting_signals/models/education_models.dart';
+import 'package:hunting_signals/utils/csv_import.dart';
+
+/// Підсумок імпорту CSV: скільки додано і які рядки пропущено.
+class CsvImportResult {
+  final int added;
+  final List<CsvSkip> skipped;
+  const CsvImportResult(this.added, this.skipped);
+}
+
+/// Наступний sortOrder у кінець списку (як nextOrder на сайті).
+int nextSortOrder(Iterable<int?> orders) =>
+    orders.fold<int>(orders.length, (m, o) => o != null && o + 1 > m ? o + 1 : m);
 
 class EducationService {
   static FirebaseFirestore get _db => FirebaseFirestore.instance;
@@ -12,11 +24,14 @@ class EducationService {
 
   // ── ТЕМИ ────────────────────────────────────────────────────────────
 
-  static Future<List<EducationTopic>> getTopics() async {
+  /// Приховані теми (лише для іспитів) студентам не показуються;
+  /// адмінка й вибір тем для іспиту передають [includeHidden].
+  static Future<List<EducationTopic>> getTopics({bool includeHidden = false}) async {
     try {
       final snap = await _db.collection(_topicsCol).get();
       final topics = snap.docs
           .map((d) => EducationTopic.fromJson(Map<String, dynamic>.from(d.data())))
+          .where((t) => includeHidden || !t.hidden)
           .toList();
       topics.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
       return topics;
@@ -28,16 +43,10 @@ class EducationService {
 
   static Future<bool> reorderTopics(List<EducationTopic> newOrder) async {
     try {
+      // Лише sortOrder: решта полів (hidden, поля сайту) лишається як є
       final batch = _db.batch();
       for (int i = 0; i < newOrder.length; i++) {
-        final updated = EducationTopic(
-          id: newOrder[i].id,
-          name: newOrder[i].name,
-          description: newOrder[i].description,
-          imageUrl: newOrder[i].imageUrl,
-          sortOrder: i,
-        );
-        batch.set(_db.collection(_topicsCol).doc(updated.id), updated.toJson());
+        batch.update(_db.collection(_topicsCol).doc(newOrder[i].id), {'sortOrder': i});
       }
       await batch.commit();
       return true;
@@ -49,7 +58,8 @@ class EducationService {
 
   static Future<bool> saveTopic(EducationTopic topic) async {
     try {
-      await _db.collection(_topicsCol).doc(topic.id).set(topic.toJson());
+      // merge: поля, яких модель не знає (їх може писати сайт), не стираються
+      await _db.collection(_topicsCol).doc(topic.id).set(topic.toJson(), SetOptions(merge: true));
       return true;
     } catch (e) {
       debugPrint('saveTopic error: $e');
@@ -114,7 +124,8 @@ class EducationService {
           .get();
       return snap.docs
           .map((d) => Flashcard.fromJson(Map<String, dynamic>.from(d.data())))
-          .toList();
+          .toList()
+        ..sort((a, b) => compareBySortOrder(a.sortOrder, a.id, b.sortOrder, b.id));
     } catch (e) {
       debugPrint('getFlashcardsByTopic error: $e');
       return [];
@@ -141,37 +152,24 @@ class EducationService {
     }
   }
 
-  /// CSV формат: питання,відповідь
-  static Future<int> saveFlashcardsFromCsv(String topicId, String csvContent) async {
-    try {
-      final lines = csvContent
-          .split('\n')
-          .map((l) => l.trim())
-          .where((l) => l.isNotEmpty)
-          .toList();
-
+  /// CSV: питання,відповідь (поля в лапках можуть містити коми; заголовок і
+  /// BOM пропускаються). Нові картки додаються в кінець списку теми.
+  static Future<CsvImportResult> saveFlashcardsFromCsv(String topicId, String csvContent) async {
+    final parsed = parseCsvFile(csvContent, parseCardRow);
+    if (parsed.rows.isEmpty) return CsvImportResult(0, parsed.skipped);
+    final existing = await getFlashcardsByTopic(topicId);
+    final base = nextSortOrder(existing.map((c) => c.sortOrder));
+    final ts = DateTime.now().millisecondsSinceEpoch;
+    for (var i = 0; i < parsed.rows.length; i += 400) {
       final batch = _db.batch();
-      int count = 0;
-      final ts = DateTime.now().millisecondsSinceEpoch;
-
-      for (int i = 0; i < lines.length; i++) {
-        final commaIdx = lines[i].indexOf(',');
-        if (commaIdx < 1) continue;
-        final question = lines[i].substring(0, commaIdx).trim();
-        final answer   = lines[i].substring(commaIdx + 1).trim();
-        if (question.isEmpty || answer.isEmpty) continue;
-
-        final id = 'fc_${ts}_$i';
-        final card = Flashcard(id: id, topicId: topicId, question: question, answer: answer);
-        batch.set(_db.collection(_flashcardsCol).doc(id), card.toJson());
-        count++;
+      for (var j = i; j < parsed.rows.length && j < i + 400; j++) {
+        final r = parsed.rows[j];
+        final card = Flashcard(id: importId('fc', ts, j), topicId: topicId, question: r.question, answer: r.answer, sortOrder: base + j);
+        batch.set(_db.collection(_flashcardsCol).doc(card.id), card.toJson());
       }
       await batch.commit();
-      return count;
-    } catch (e) {
-      debugPrint('saveFlashcardsFromCsv error: $e');
-      return 0;
     }
+    return CsvImportResult(parsed.rows.length, parsed.skipped);
   }
 
   static Future<bool> deleteAllFlashcardsForTopic(String topicId) async {
@@ -200,7 +198,8 @@ class EducationService {
           .get();
       return snap.docs
           .map((d) => TestQuestion.fromJson(Map<String, dynamic>.from(d.data())))
-          .toList();
+          .toList()
+        ..sort((a, b) => compareBySortOrder(a.sortOrder, a.id, b.sortOrder, b.id));
     } catch (e) {
       debugPrint('getTestQuestions error: $e');
       return [];
@@ -227,48 +226,32 @@ class EducationService {
     }
   }
 
-  /// CSV формат: питання,варіант1,варіант2,варіант3,варіант4,правильний_індекс(0-3),пояснення(опціонально)
-  static Future<int> saveTestQuestionsFromCsv(String topicId, String csvContent) async {
-    try {
-      final lines = csvContent
-          .split('\n')
-          .map((l) => l.trim())
-          .where((l) => l.isNotEmpty)
-          .toList();
-
+  /// CSV: питання,варіант1,варіант2,варіант3,варіант4,правильний(0-3)[,пояснення].
+  /// Рядки з помилками пропускаються (номери — у результаті).
+  static Future<CsvImportResult> saveTestQuestionsFromCsv(String topicId, String csvContent) async {
+    final parsed = parseCsvFile(csvContent, parseQuestionRow);
+    if (parsed.rows.isEmpty) return CsvImportResult(0, parsed.skipped);
+    final existing = await getTestQuestionsByTopic(topicId);
+    final base = nextSortOrder(existing.map((q) => q.sortOrder));
+    final ts = DateTime.now().millisecondsSinceEpoch;
+    for (var i = 0; i < parsed.rows.length; i += 400) {
       final batch = _db.batch();
-      int count = 0;
-      final ts = DateTime.now().millisecondsSinceEpoch;
-
-      for (int i = 0; i < lines.length; i++) {
-        final parts = lines[i].split(',');
-        if (parts.length < 6) continue;
-
-        final question     = parts[0].trim();
-        final options      = [parts[1].trim(), parts[2].trim(), parts[3].trim(), parts[4].trim()];
-        final correctIndex = int.tryParse(parts[5].trim()) ?? 0;
-        final explanation  = parts.length > 6 ? parts.sublist(6).join(',').trim() : null;
-
-        if (question.isEmpty || options.any((o) => o.isEmpty)) continue;
-
-        final id = 'tq_${ts}_$i';
+      for (var j = i; j < parsed.rows.length && j < i + 400; j++) {
+        final r = parsed.rows[j];
         final q = TestQuestion(
-          id: id,
+          id: importId('tq', ts, j),
           topicId: topicId,
-          question: question,
-          options: options,
-          correctIndex: correctIndex,
-          explanation: explanation,
+          question: r.question,
+          options: r.options,
+          correctIndex: r.correctIndex,
+          explanation: r.explanation,
+          sortOrder: base + j,
         );
-        batch.set(_db.collection(_testQuestionsCol).doc(id), q.toJson());
-        count++;
+        batch.set(_db.collection(_testQuestionsCol).doc(q.id), q.toJson());
       }
       await batch.commit();
-      return count;
-    } catch (e) {
-      debugPrint('saveTestQuestionsFromCsv error: $e');
-      return 0;
     }
+    return CsvImportResult(parsed.rows.length, parsed.skipped);
   }
 
   static Future<bool> deleteAllTestQuestionsForTopic(String topicId) async {

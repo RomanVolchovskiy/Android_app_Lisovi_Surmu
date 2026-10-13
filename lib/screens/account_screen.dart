@@ -78,6 +78,10 @@ class _AccountScreenState extends State<AccountScreen> {
                 ),
               ),
               const SizedBox(height: 12),
+              if (user != null) ...[
+                const _ProfileCard(),
+                const SizedBox(height: 12),
+              ],
               Card(
                 color: info.color.withValues(alpha: 0.08),
                 child: Padding(
@@ -176,6 +180,100 @@ class _AccountScreenState extends State<AccountScreen> {
 
   static String _fmt(DateTime d) =>
       '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
+}
+
+/// «Мої дані»: ПІБ і група для іспиту та історії пробних тестів.
+class _ProfileCard extends StatefulWidget {
+  const _ProfileCard();
+
+  @override
+  State<_ProfileCard> createState() => _ProfileCardState();
+}
+
+class _ProfileCardState extends State<_ProfileCard> {
+  final _name = TextEditingController();
+  final _group = TextEditingController();
+  bool _loading = true;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    AccessService.getProfile().then((p) {
+      _name.text = p.fullName;
+      _group.text = p.group;
+    }).catchError((_) {}).whenComplete(() {
+      if (mounted) setState(() => _loading = false);
+    });
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _group.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (_name.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Введіть ПІБ'), backgroundColor: Colors.red));
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await AccessService.saveProfile(fullName: _name.text, group: _group.text);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Дані збережено'), backgroundColor: Colors.green));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Не вдалося зберегти: $e'), backgroundColor: Colors.red));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: _loading
+            ? const Center(child: Padding(padding: EdgeInsets.all(8), child: CircularProgressIndicator()))
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Мої дані', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text('Потрібні для іспиту й щоденника практики', style: TextStyle(color: Colors.grey[700], fontSize: 13)),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _name,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(labelText: 'ПІБ *', border: OutlineInputBorder(), isDense: true),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _group,
+                    decoration: const InputDecoration(labelText: 'Група', hintText: 'напр. ЛГс-32', border: OutlineInputBorder(), isDense: true),
+                  ),
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: ElevatedButton.icon(
+                      onPressed: _saving ? null : _save,
+                      icon: _saving
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.save_outlined),
+                      label: const Text('Зберегти'),
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
 }
 
 class _StatusInfo {

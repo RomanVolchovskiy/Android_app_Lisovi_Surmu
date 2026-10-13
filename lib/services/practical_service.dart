@@ -26,7 +26,8 @@ class PracticalService {
 
   static Future<bool> saveTopic(EducationTopic topic) async {
     try {
-      await _db.collection(_topicsCol).doc(topic.id).set(topic.toJson());
+      // merge: поля, яких модель не знає (їх може писати сайт), не стираються
+      await _db.collection(_topicsCol).doc(topic.id).set(topic.toJson(), SetOptions(merge: true));
       return true;
     } catch (e) {
       debugPrint('PracticalService.saveTopic error: $e');
@@ -48,19 +49,23 @@ class PracticalService {
     try {
       final batch = _db.batch();
       for (int i = 0; i < newOrder.length; i++) {
-        final updated = EducationTopic(
-          id: newOrder[i].id,
-          name: newOrder[i].name,
-          description: newOrder[i].description,
-          imageUrl: newOrder[i].imageUrl,
-          sortOrder: i,
-        );
-        batch.set(_db.collection(_topicsCol).doc(updated.id), updated.toJson());
+        batch.update(_db.collection(_topicsCol).doc(newOrder[i].id), {'sortOrder': i});
       }
       await batch.commit();
       return true;
     } catch (e) {
       debugPrint('PracticalService.reorderTopics error: $e');
+      return false;
+    }
+  }
+
+  /// Теоретичні теми, пробні тести яких — «тест дня» цієї практичної теми.
+  static Future<bool> setTestTopics(String topicId, List<String> testTopicIds) async {
+    try {
+      await _db.collection(_topicsCol).doc(topicId).update({'testTopicIds': testTopicIds});
+      return true;
+    } catch (e) {
+      debugPrint('PracticalService.setTestTopics error: $e');
       return false;
     }
   }

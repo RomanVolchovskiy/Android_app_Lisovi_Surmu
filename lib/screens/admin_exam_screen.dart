@@ -88,13 +88,17 @@ class _AdminExamScreenState extends State<AdminExamScreen>
     final result = await Navigator.push<ExamSession>(context,
         MaterialPageRoute(builder: (_) => const _CreateSessionScreen()));
     if (result != null) {
-      final ok = await ExamService.saveSession(result);
+      final saved = await ExamService.createSession(result);
       if (!mounted) return;
-      if (ok) {
+      if (saved != null) {
         _load();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Сесію "${result.title}" створено. Код: ${result.code}'),
+          SnackBar(content: Text('Сесію "${saved.title}" створено. Код: ${saved.code}'),
               backgroundColor: Colors.green),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Не вдалося створити сесію'), backgroundColor: Colors.red),
         );
       }
     }
@@ -142,6 +146,8 @@ class _SessionList extends StatelessWidget {
     if (sessions.isEmpty) {
       return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center,
           children: [
+        const Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: _SiteHint()),
+        const SizedBox(height: 24),
         Icon(Icons.event_note_rounded, size: 56, color: Colors.grey[400]),
         const SizedBox(height: 12),
         Text('Сесії відсутні', style: TextStyle(
@@ -161,17 +167,46 @@ class _SessionList extends StatelessWidget {
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: sessions.length,
-      itemBuilder: (context, i) => _SessionCard(
+      itemCount: sessions.length + 1,
+      itemBuilder: (context, j) {
+        if (j == 0) return const _SiteHint();
+        final i = j - 1;
+        return _SessionCard(
         session: sessions[i],
         onChangeStatus: onChangeStatus,
         onDelete: onDelete,
         onTapResults: () => Navigator.push(context, MaterialPageRoute(
           builder: (_) => _SessionResultsScreen(session: sessions[i]),
         )),
-      ),
+      );
+      },
     );
   }
+}
+
+/// Підказка: студенти складають іспит на сайті; там же — живий моніторинг.
+class _SiteHint extends StatelessWidget {
+  const _SiteHint();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    margin: const EdgeInsets.only(bottom: 12),
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: const Color(0xFFE3F2FD),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: const Color(0xFF90CAF9)),
+    ),
+    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Icon(Icons.info_outline_rounded, color: Color(0xFF1565C0), size: 20),
+      const SizedBox(width: 10),
+      Expanded(child: Text(
+        'Студенти складають іспит на сайті ${ExamService.siteUrl.replaceFirst('https://', '')} за кодом сесії. '
+        'Живий моніторинг, анулювання спроб, примусова здача й CSV — в адмінці сайту.',
+        style: const TextStyle(fontSize: 12.5, height: 1.35, color: Color(0xFF0D47A1)),
+      )),
+    ]),
+  );
 }
 
 class _SessionCard extends StatelessWidget {
@@ -699,7 +734,8 @@ class _CreateSessionScreenState extends State<_CreateSessionScreen> {
   @override
   void initState() {
     super.initState();
-    EducationService.getTopics().then((t) {
+    // Для іспиту доступні й приховані теми (саме для цього їх приховують)
+    EducationService.getTopics(includeHidden: true).then((t) {
       if (mounted) setState(() => _topics = t);
     });
   }

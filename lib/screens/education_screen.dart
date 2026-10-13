@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:hunting_signals/models/education_models.dart';
 import 'package:hunting_signals/services/education_service.dart';
 import 'package:hunting_signals/screens/education_topic_screen.dart';
 import 'package:hunting_signals/screens/flashcard_screen.dart';
 import 'package:hunting_signals/screens/test_screen.dart';
 import 'package:hunting_signals/screens/theory_practice_test_screen.dart';
-import 'package:hunting_signals/screens/exam_taking_screen.dart';
+import 'package:hunting_signals/screens/my_quiz_results_screen.dart';
+import 'package:hunting_signals/services/exam_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:hunting_signals/screens/study_plan_screen.dart';
 import 'package:hunting_signals/screens/practical_tasks_screen.dart';
 import 'package:hunting_signals/theme/hunting_theme.dart';
@@ -285,7 +288,7 @@ class _TestingHub extends StatelessWidget {
           _HubSection(
             icon: Icons.science_rounded,
             title: 'Пробне тестування',
-            subtitle: 'Перевір знання без збереження результатів',
+            subtitle: 'Результати зберігаються в «Мої результати»',
             color: HuntingTheme.primaryColor,
           ),
           const SizedBox(height: 12),
@@ -314,6 +317,20 @@ class _TestingHub extends StatelessWidget {
               ),
             ),
           ]),
+          const SizedBox(height: 12),
+          Card(
+            margin: EdgeInsets.zero,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            child: ListTile(
+              leading: const Icon(Icons.history_rounded, color: Color(0xFF5D4037)),
+              title: const Text('Мої результати', style: TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: const Text('Останні 50 пробних тестів — для щоденника практики'),
+              trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+              onTap: () => Navigator.push(context, MaterialPageRoute(
+                builder: (_) => const MyQuizResultsScreen(),
+              )),
+            ),
+          ),
 
           const SizedBox(height: 28),
 
@@ -321,11 +338,11 @@ class _TestingHub extends StatelessWidget {
           _HubSection(
             icon: Icons.school_rounded,
             title: 'Іспит',
-            subtitle: 'Введіть код сесії, наданий адміністратором',
+            subtitle: 'Іспит складається на сайті за кодом сесії',
             color: const Color(0xFF1C3A1C),
           ),
           const SizedBox(height: 12),
-          _ExamCodeCard(),
+          const _ExamOnSiteCard(),
         ],
       ),
     );
@@ -453,20 +470,24 @@ class _BigCard extends StatelessWidget {
   );
 }
 
-class _ExamCodeCard extends StatefulWidget {
-  @override
-  State<_ExamCodeCard> createState() => _ExamCodeCardState();
-}
+/// Іспит у додатку не проводиться (ТЗ практики, розділ 7): спроби, таймер і
+/// автозбереження реалізовані лише на сайті, тож тут — повідомлення й посилання.
+class _ExamOnSiteCard extends StatelessWidget {
+  const _ExamOnSiteCard();
 
-class _ExamCodeCardState extends State<_ExamCodeCard> {
-  final _ctrl = TextEditingController();
-
-  @override
-  void dispose() { _ctrl.dispose(); super.dispose(); }
+  Future<void> _open(BuildContext context) async {
+    final ok = await launchUrl(Uri.parse(ExamService.siteExamUrl), mode: LaunchMode.externalApplication);
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не вдалося відкрити браузер. Відкрийте ${ExamService.siteUrl} вручну')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: const Color(0xFF1C3A1C),
@@ -474,56 +495,40 @@ class _ExamCodeCardState extends State<_ExamCodeCard> {
         boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 8,
             offset: const Offset(0, 4))],
       ),
-      child: Column(children: [
-        const Text('Введіть код сесії',
-            style: TextStyle(color: Colors.white70, fontSize: 13)),
-        const SizedBox(height: 12),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Іспит проходьте на сайті',
+            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 6),
+        SelectableText(ExamService.siteUrl.replaceFirst('https://', ''),
+            style: const TextStyle(color: Color(0xFFD4A017), fontSize: 15, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 8),
+        const Text('Увійдіть тим самим акаунтом, відкрийте «Навчання» → «Тестування» → «Іспит» і введіть код сесії від викладача.',
+            style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.35)),
+        const SizedBox(height: 14),
         Row(children: [
           Expanded(
-            child: TextField(
-              controller: _ctrl,
-              textCapitalization: TextCapitalization.characters,
-              maxLength: 6,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold,
-                  letterSpacing: 6, color: Color(0xFFD4A017)),
-              textAlign: TextAlign.center,
-              decoration: InputDecoration(
-                counterText: '',
-                hintText: '______',
-                hintStyle: TextStyle(letterSpacing: 6, color: Colors.white30),
-                filled: true,
-                fillColor: Colors.white.withValues(alpha: 0.1),
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFFD4A017))),
-                focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                        color: Color(0xFFD4A017), width: 2)),
-                enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.3))),
+            child: ElevatedButton.icon(
+              onPressed: () => _open(context),
+              icon: const Icon(Icons.open_in_browser_rounded),
+              label: const Text('Відкрити сайт'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFD4A017),
+                foregroundColor: Colors.black87,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ),
-          const SizedBox(width: 12),
-          ElevatedButton(
+          const SizedBox(width: 10),
+          IconButton(
+            tooltip: 'Скопіювати посилання',
             onPressed: () {
-              if (_ctrl.text.trim().length == 6) {
-                Navigator.push(context, MaterialPageRoute(
-                  builder: (_) => const ExamEntryScreen(),
-                ));
-              }
+              Clipboard.setData(const ClipboardData(text: ExamService.siteExamUrl));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Посилання скопійовано')),
+              );
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFD4A017),
-              foregroundColor: Colors.black87,
-              padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-            ),
-            child: const Icon(Icons.arrow_forward_rounded, size: 24),
+            icon: const Icon(Icons.copy_rounded, color: Colors.white70),
           ),
         ]),
       ]),

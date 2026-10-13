@@ -4,6 +4,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:hunting_signals/models/hunting_models.dart';
 import 'package:hunting_signals/services/hunting_data_service.dart';
+import 'package:hunting_signals/services/quiz_results_service.dart';
 
 // Скільки питань в одному тесті (або менше, якщо сигналів з аудіо замало)
 const _kTestCount = 10;
@@ -194,6 +195,14 @@ class _TestScreenState extends State<TestScreen> {
     } else {
       _timer?.cancel();
       setState(() => _finished = true);
+      final d = widget.difficulty;
+      QuizResultsService.save(
+        kind: 'audio',
+        topicName: d == null ? 'усі сигнали' : QuizResultsService.audioLevelNames[d] ?? d,
+        audioFilter: d ?? 'all',
+        correct: _score,
+        total: _questions.length,
+      );
     }
   }
 

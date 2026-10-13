@@ -7,6 +7,7 @@ import 'package:hunting_signals/services/study_plan_service.dart';
 import 'package:hunting_signals/theme/hunting_theme.dart';
 import 'package:hunting_signals/screens/drive_file_viewer_screen.dart';
 import 'package:hunting_signals/screens/video_player_screen.dart';
+import 'package:hunting_signals/screens/theory_practice_test_screen.dart';
 
 class EducationTopicScreen extends StatefulWidget {
   final EducationTopic topic;
@@ -32,6 +33,8 @@ class _EducationTopicScreenState extends State<EducationTopicScreen>
   List<LearningMaterial> _materials = [];
   Set<String> _completedMaterials = {};
   bool _loading = true;
+  /// Теоретичні теми «тесту дня» (практична тема, поле testTopicIds).
+  List<EducationTopic> _dayTests = [];
 
   static const _typeOrder = [
     LearningMaterialType.text,
@@ -111,6 +114,7 @@ class _EducationTopicScreenState extends State<EducationTopicScreen>
     super.initState();
     _tabController = TabController(length: _typeOrder.length, vsync: this);
     _load();
+    _loadDayTests();
   }
 
   @override
@@ -166,10 +170,54 @@ class _EducationTopicScreenState extends State<EducationTopicScreen>
     }
   }
 
+  Future<void> _loadDayTests() async {
+    final ids = widget.topic.testTopicIds;
+    if (ids.isEmpty) return;
+    final all = await EducationService.getTopics(); // без прихованих
+    final linked = ids.map((id) => all.where((t) => t.id == id).firstOrNull).whereType<EducationTopic>().toList();
+    if (mounted) setState(() => _dayTests = linked);
+  }
+
+  void _openDayTest() {
+    if (_dayTests.length == 1) {
+      startTheoryPracticeTest(context, _dayTests.first);
+      return;
+    }
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text('📝 Пробний тест дня', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ),
+          ..._dayTests.map((t) => ListTile(
+                leading: const Icon(Icons.quiz_rounded, color: Color(0xFF1565C0)),
+                title: Text(t.name),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  startTheoryPracticeTest(context, t);
+                },
+              )),
+          const SizedBox(height: 8),
+        ]),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFAF0E6),
+      floatingActionButton: _dayTests.isEmpty
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: _openDayTest,
+              backgroundColor: const Color(0xFF1565C0),
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.quiz_rounded),
+              label: const Text('Пробний тест дня'),
+            ),
       appBar: AppBar(
         title: Text(widget.topic.name),
         backgroundColor: const Color(0xFF1C3A1C),

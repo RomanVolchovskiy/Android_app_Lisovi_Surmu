@@ -271,6 +271,24 @@ class AccessService {
     }
   }
 
+  // ── Мої дані (ПІБ і група) ─────────────────────────────────────────────────
+  // Ті самі поля users/{uid} пише сайт («Мої дані»); їх беруть іспит і
+  // історія пробних тестів, щоб викладач бачив, чия це робота.
+
+  static Future<({String fullName, String group})> getProfile() async {
+    final user = _auth.currentUser;
+    if (user == null) return (fullName: '', group: '');
+    final d = (await _db.collection('users').doc(user.uid).get()).data() ?? {};
+    return (fullName: d['fullName']?.toString() ?? '', group: d['group']?.toString() ?? '');
+  }
+
+  /// Документ users/{uid} створює _touchUser під час входу, тож тут лише оновлення.
+  static Future<void> saveProfile({required String fullName, required String group}) async {
+    final user = _auth.currentUser;
+    if (user == null) throw const AccessException('Увійдіть в акаунт');
+    await _db.collection('users').doc(user.uid).update({'fullName': fullName.trim(), 'group': group.trim()});
+  }
+
   // ── Коди доступу ───────────────────────────────────────────────────────────
 
   /// Символи без схожих (0/O, 1/I/L).

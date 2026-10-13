@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hunting_signals/models/education_models.dart';
 import 'package:hunting_signals/services/education_service.dart';
+import 'package:hunting_signals/services/quiz_results_service.dart';
 
 const _darkGreen  = Color(0xFF1C3A1C);
 const _gold       = Color(0xFFD4A017);
@@ -109,19 +110,23 @@ class _TheoryPracticeTestScreenState extends State<TheoryPracticeTestScreen> {
     );
   }
 
-  Future<void> _startTest(BuildContext context, EducationTopic topic) async {
-    final questions = await EducationService.getTestQuestionsByTopic(topic.id);
-    if (!context.mounted) return;
-    if (questions.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('До цієї теми ще не додані питання')),
-      );
-      return;
-    }
-    Navigator.push(context, MaterialPageRoute(
-      builder: (_) => _TheoryTestQuizScreen(topic: topic, questions: questions),
-    ));
+  Future<void> _startTest(BuildContext context, EducationTopic topic) =>
+      startTheoryPracticeTest(context, topic);
+}
+
+/// Пробний тест теми (і «тест дня» з практичної теми).
+Future<void> startTheoryPracticeTest(BuildContext context, EducationTopic topic) async {
+  final questions = await EducationService.getTestQuestionsByTopic(topic.id);
+  if (!context.mounted) return;
+  if (questions.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('До цієї теми ще не додані питання')),
+    );
+    return;
   }
+  Navigator.push(context, MaterialPageRoute(
+    builder: (_) => _TheoryTestQuizScreen(topic: topic, questions: questions),
+  ));
 }
 
 // ── Тест ─────────────────────────────────────────────────────────────────────
@@ -160,6 +165,13 @@ class _TheoryTestQuizScreenState extends State<_TheoryTestQuizScreen> {
       });
     } else {
       setState(() => _finished = true);
+      QuizResultsService.save(
+        kind: 'theory',
+        topicId: widget.topic.id,
+        topicName: widget.topic.name,
+        correct: _correct,
+        total: widget.questions.length,
+      );
     }
   }
 

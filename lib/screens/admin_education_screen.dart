@@ -8,6 +8,7 @@ import 'package:hunting_signals/services/media_cache_service.dart';
 import 'package:hunting_signals/services/study_plan_service.dart';
 import 'package:hunting_signals/services/practical_service.dart';
 import 'package:hunting_signals/screens/level_thematic_screen.dart';
+import 'package:hunting_signals/utils/csv_import.dart';
 
 class AdminEducationScreen extends StatefulWidget {
   const AdminEducationScreen({super.key});
@@ -36,7 +37,7 @@ class _AdminEducationScreenState extends State<AdminEducationScreen>
   }
 
   Future<void> _loadTopics() async {
-    final topics = await EducationService.getTopics();
+    final topics = await EducationService.getTopics(includeHidden: true);
     if (mounted) setState(() { _topics = topics; _loading = false; });
   }
 
@@ -158,6 +159,51 @@ InputDecoration _inputDec(String label, {String? hint}) => InputDecoration(
   isDense: true,
 );
 
+// ── Імпорт CSV: підтвердження й підсумок (як на сайті) ─────────────────────────
+String _csvLineList(List<CsvSkip> list) =>
+    list.take(15).map((x) => x.n).join(', ') + (list.length > 15 ? '…' : '');
+
+Future<bool> _confirmCsvImport(BuildContext context, String topicName, CsvParsed parsed, int existing, String hint) async {
+  if (parsed.rows.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('Не знайдено жодного правильного рядка ($hint)'
+          '${parsed.skipped.isNotEmpty ? '. Пропущено рядки: ${_csvLineList(parsed.skipped)}' : ''}'),
+      backgroundColor: Colors.red,
+      duration: const Duration(seconds: 6),
+    ));
+    return false;
+  }
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Імпортувати CSV?'),
+      content: Text('Тема: «$topicName». Розпізнано рядків: ${parsed.rows.length}.'
+          '${parsed.skipped.isNotEmpty ? ' Буде пропущено: ${parsed.skipped.length} (рядки ${_csvLineList(parsed.skipped)}; перша причина: ${parsed.skipped.first.error}).' : ''}'
+          ' Записи додадуться в кінець списку (зараз $existing).'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Скасувати')),
+        ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Імпортувати')),
+      ],
+    ),
+  );
+  return ok == true;
+}
+
+void _showCsvResult(BuildContext context, CsvImportResult r) {
+  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+    content: Text('Імпортовано ${r.added}, пропущено ${r.skipped.length}'
+        '${r.skipped.isNotEmpty ? ' (рядки: ${_csvLineList(r.skipped)})' : ''}'),
+    backgroundColor: r.skipped.isEmpty ? Colors.green : Colors.orange[800],
+    duration: const Duration(seconds: 6),
+  ));
+}
+
+void _showCsvError(BuildContext context, Object e) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text('Помилка імпорту: $e'), backgroundColor: Colors.red),
+  );
+}
+
 // ── Вкладка «Теми» ─────────────────────────────────────────────────────────────
 class _TopicsTab extends StatefulWidget {
   final List<EducationTopic> topics;
@@ -174,6 +220,7 @@ class _TopicsTabState extends State<_TopicsTab> {
   EducationTopic? _editing;
   final _nameCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
+  bool _hidden = false;
 
   @override
   void initState() {
@@ -208,22 +255,28 @@ class _TopicsTabState extends State<_TopicsTab> {
   void _startAdd() => setState(() {
     _showForm = true; _editing = null;
     _nameCtrl.clear(); _descCtrl.clear();
+    _hidden = false;
   });
 
   void _startEdit(EducationTopic t) => setState(() {
     _showForm = true; _editing = t;
     _nameCtrl.text = t.name; _descCtrl.text = t.description;
+    _hidden = t.hidden;
   });
 
   void _cancel() => setState(() { _showForm = false; _editing = null; });
 
   Future<void> _save() async {
     if (_nameCtrl.text.trim().isEmpty) return;
-    final t = EducationTopic(
-      id: _editing?.id ?? 'topic_${DateTime.now().millisecondsSinceEpoch}',
-      name: _nameCtrl.text.trim(),
-      description: _descCtrl.text.trim(),
-    );
+    // Редагування зберігає sortOrder, зображення й інші поля теми
+    final t = _editing?.copyWith(name: _nameCtrl.text.trim(), description: _descCtrl.text.trim(), hidden: _hidden) ??
+        EducationTopic(
+          id: 'topic_${DateTime.now().millisecondsSinceEpoch}',
+          name: _nameCtrl.text.trim(),
+          description: _descCtrl.text.trim(),
+          sortOrder: _topics.length,
+          hidden: _hidden,
+        );
     await EducationService.saveTopic(t);
     setState(() { _showForm = false; _editing = null; });
     widget.onChanged();
@@ -265,6 +318,17 @@ class _TopicsTabState extends State<_TopicsTab> {
               TextField(controller: _nameCtrl, decoration: _inputDec('Назва теми *')),
               const SizedBox(height: 10),
               TextField(controller: _descCtrl, decoration: _inputDec('Опис'), maxLines: 2),
+              const SizedBox(height: 6),
+              StatefulBuilder(
+                builder: (context, setLocal) => SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  value: _hidden,
+                  onChanged: (v) => setLocal(() => _hidden = v),
+                  title: const Text('Прихована (лише для іспитів)'),
+                  subtitle: const Text('Студенти не бачать тему в теорії, флеш-картках і пробних тестах; її питання можна брати в іспит.'),
+                ),
+              ),
             ],
           ),
         Expanded(
@@ -296,7 +360,11 @@ class _TopicsTabState extends State<_TopicsTab> {
                             ),
                           ],
                         ),
-                        title: Text(t.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                        title: Text.rich(TextSpan(children: [
+                          TextSpan(text: t.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                          if (t.hidden)
+                            TextSpan(text: '  🔒 прихована', style: TextStyle(fontSize: 12, color: Colors.orange[800], fontWeight: FontWeight.w600)),
+                        ])),
                         subtitle: t.description.isNotEmpty ? Text(t.description) : null,
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -587,6 +655,7 @@ class _FlashcardsTabState extends State<_FlashcardsTab> {
       topicId: _selectedTopic!.id,
       question: _qCtrl.text.trim(),
       answer: _aCtrl.text.trim(),
+      sortOrder: nextSortOrder(_cards.map((c) => c.sortOrder)),
     );
     await EducationService.saveFlashcard(card);
     setState(() { _showForm = false; });
@@ -609,11 +678,13 @@ class _FlashcardsTabState extends State<_FlashcardsTab> {
     } else {
       return;
     }
-    final count = await EducationService.saveFlashcardsFromCsv(_selectedTopic!.id, content);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Додано $count флеш-карток'), backgroundColor: Colors.green),
-      );
+    if (!mounted) return;
+    if (!await _confirmCsvImport(context, _selectedTopic!.name, parseCsvFile(content, parseCardRow), _cards.length, 'питання,відповідь')) return;
+    try {
+      final r = await EducationService.saveFlashcardsFromCsv(_selectedTopic!.id, content);
+      if (mounted) _showCsvResult(context, r);
+    } catch (e) {
+      if (mounted) _showCsvError(context, e);
     }
     _loadCards();
   }
@@ -773,6 +844,7 @@ class _TestQuestionsTabState extends State<_TestQuestionsTab> {
       options: _opts.map((c) => c.text.trim()).toList(),
       correctIndex: _correctIdx,
       explanation: _expCtrl.text.trim().isNotEmpty ? _expCtrl.text.trim() : null,
+      sortOrder: nextSortOrder(_questions.map((q) => q.sortOrder)),
     );
     await EducationService.saveTestQuestion(q);
     setState(() { _showForm = false; });
@@ -795,11 +867,14 @@ class _TestQuestionsTabState extends State<_TestQuestionsTab> {
     } else {
       return;
     }
-    final count = await EducationService.saveTestQuestionsFromCsv(_selectedTopic!.id, content);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Додано $count питань'), backgroundColor: Colors.green),
-      );
+    if (!mounted) return;
+    if (!await _confirmCsvImport(context, _selectedTopic!.name, parseCsvFile(content, parseQuestionRow), _questions.length,
+        'питання,варіант1,варіант2,варіант3,варіант4,правильний(0-3)[,пояснення]')) return;
+    try {
+      final r = await EducationService.saveTestQuestionsFromCsv(_selectedTopic!.id, content);
+      if (mounted) _showCsvResult(context, r);
+    } catch (e) {
+      if (mounted) _showCsvError(context, e);
     }
     _loadQuestions();
   }
@@ -1524,6 +1599,56 @@ class _PracticalTopicsSectionState extends State<_PracticalTopicsSection> {
     widget.onChanged();
   }
 
+  /// Теоретичні теми (не приховані), пробні тести яких студент бачить у цій
+  /// практичній темі як «Пробний тест дня».
+  Future<void> _editTests(EducationTopic topic) async {
+    final theory = await EducationService.getTopics();
+    if (!mounted) return;
+    final picked = {...topic.testTopicIds};
+    final result = await showDialog<List<String>>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: Text('Тест дня: ${topic.name}'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: theory.isEmpty
+                ? const Text('Теоретичних тем ще немає')
+                : ListView(
+                    shrinkWrap: true,
+                    children: theory.map((t) => CheckboxListTile(
+                          dense: true,
+                          value: picked.contains(t.id),
+                          title: Text(t.name),
+                          onChanged: (v) => setLocal(() => v == true ? picked.add(t.id) : picked.remove(t.id)),
+                        )).toList(),
+                  ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Скасувати')),
+            ElevatedButton(
+              // порядок — як у списку тем; посилання на теми, яких у списку
+              // немає (зараз приховані), лишаються як були — як на сайті
+              onPressed: () => Navigator.pop(ctx, [
+                ...theory.map((t) => t.id).where(picked.contains),
+                ...picked.where((id) => !theory.any((t) => t.id == id)),
+              ]),
+              child: const Text('Зберегти'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (result == null) return;
+    final ok = await PracticalService.setTestTopics(topic.id, result);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(ok ? 'Тест дня збережено' : 'Не вдалося зберегти'),
+      backgroundColor: ok ? Colors.green : Colors.red,
+    ));
+    widget.onChanged();
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -1577,10 +1702,24 @@ class _PracticalTopicsSectionState extends State<_PracticalTopicsSection> {
                     ? Text(t.description,
                         maxLines: 1, overflow: TextOverflow.ellipsis)
                     : null,
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete_outline_rounded,
-                      color: Colors.red, size: 20),
-                  onPressed: () => _delete(t),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip: 'Пробний тест дня',
+                      icon: Badge(
+                        isLabelVisible: t.testTopicIds.isNotEmpty,
+                        label: Text('${t.testTopicIds.length}'),
+                        child: const Icon(Icons.quiz_outlined, color: Color(0xFF1565C0), size: 20),
+                      ),
+                      onPressed: () => _editTests(t),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline_rounded,
+                          color: Colors.red, size: 20),
+                      onPressed: () => _delete(t),
+                    ),
+                  ],
                 ),
               ),
             )),

@@ -1,12 +1,16 @@
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hunting_signals/models/exam_models.dart';
 
+/// Сесії й роботи іспиту. Сам іспит студент складає на сайті (спроби
+/// exam_attempts, таймер, автозбереження) — додаток лише створює сесії й
+/// показує здані роботи (exam_submissions пише сайт у тому ж форматі).
 class ExamService {
-  static final _db      = FirebaseFirestore.instance;
-  static final _storage = FirebaseStorage.instance;
+  static final _db = FirebaseFirestore.instance;
+
+  static const siteUrl = 'https://lisovi-surmy.vercel.app';
+  static const siteExamUrl = '$siteUrl/#/education';
 
   static const _sessionsCol    = 'exam_sessions';
   static const _submissionsCol = 'exam_submissions';
@@ -19,6 +23,24 @@ class ExamService {
   }
 
   // ── Сесії ────────────────────────────────────────────────────────────────
+  /// Нова сесія: id документа = код (як на сайті — студент знаходить сесію
+  /// одним get). Якщо такий код уже зайнятий, генерується інший.
+  static Future<ExamSession?> createSession(ExamSession session) async {
+    try {
+      for (var i = 0; i < 5; i++) {
+        final code = i == 0 ? session.code : generateCode();
+        final ref = _db.collection(_sessionsCol).doc(code);
+        if ((await ref.get()).exists) continue;
+        final json = {...session.toJson(), 'id': code, 'code': code};
+        await ref.set(json);
+        return ExamSession.fromJson(json);
+      }
+    } catch (e) {
+      debugPrint('createSession error: $e');
+    }
+    return null;
+  }
+
   static Future<bool> saveSession(ExamSession session) async {
     try {
       await _db.collection(_sessionsCol).doc(session.id).set(session.toJson());
@@ -75,30 +97,7 @@ class ExamService {
     }
   }
 
-  // ── Роботи студентів ─────────────────────────────────────────────────────
-  static Future<bool> hasSubmitted(String sessionId, String studentName) async {
-    try {
-      final snap = await _db.collection(_submissionsCol)
-          .where('sessionId',   isEqualTo: sessionId)
-          .where('studentName', isEqualTo: studentName.trim())
-          .limit(1).get();
-      return snap.docs.isNotEmpty;
-    } catch (e) {
-      debugPrint('hasSubmitted error: $e');
-      return false;
-    }
-  }
-
-  static Future<bool> saveSubmission(ExamSubmission sub) async {
-    try {
-      await _db.collection(_submissionsCol).doc(sub.id).set(sub.toJson());
-      return true;
-    } catch (e) {
-      debugPrint('saveSubmission error: $e');
-      return false;
-    }
-  }
-
+  // ── Роботи студентів (пише сайт) ─────────────────────────────────────────
   static Future<List<ExamSubmission>> getSubmissionsBySession(String sessionId) async {
     try {
       final snap = await _db.collection(_submissionsCol)
@@ -127,27 +126,5 @@ class ExamService {
       debugPrint('updateGrade error: $e');
       return false;
     }
-  }
-
-  // ── Завантаження файлу в Storage ─────────────────────────────────────────
-  // Приймає байти, а не File: на вебі file_picker не дає шляху до файлу,
-  // тому putFile там непридатний. putData працює на всіх платформах.
-  static Future<String?> uploadFile(
-      String sessionId, String submissionId, Uint8List bytes, String fileName) async {
-    try {
-      final ext = fileName.contains('.') ? fileName.split('.').last : 'bin';
-      final ref = _storage.ref('exam_files/$sessionId/$submissionId.$ext');
-      await ref.putData(bytes);
-      return await ref.getDownloadURL();
-    } catch (e) {
-      debugPrint('uploadFile error: $e');
-      return null;
-    }
-  }
-
-  // ── Розрахунок балів ─────────────────────────────────────────────────────
-  static int scaleScore(int correct, int total, int maxPoints) {
-    if (total == 0 || maxPoints == 0) return 0;
-    return (correct / total * maxPoints).round();
   }
 }

@@ -1,10 +1,15 @@
 // ── ТЕМА ────────────────────────────────────────────────────────────────────
+// Ті самі документи пише сайт (адмінка навчання): `hidden` — тема лише для
+// іспитів (студентам не показується), `testTopicIds` — у практичної теми
+// теоретичні теми, пробні тести яких є «тестом дня».
 class EducationTopic {
   final String id;
   final String name;
   final String description;
   final String? imageUrl;
   final int sortOrder;
+  final bool hidden;
+  final List<String> testTopicIds;
 
   EducationTopic({
     required this.id,
@@ -12,7 +17,20 @@ class EducationTopic {
     required this.description,
     this.imageUrl,
     this.sortOrder = 0,
+    this.hidden = false,
+    this.testTopicIds = const [],
   });
+
+  EducationTopic copyWith({String? name, String? description, int? sortOrder, bool? hidden, List<String>? testTopicIds}) =>
+      EducationTopic(
+        id: id,
+        name: name ?? this.name,
+        description: description ?? this.description,
+        imageUrl: imageUrl,
+        sortOrder: sortOrder ?? this.sortOrder,
+        hidden: hidden ?? this.hidden,
+        testTopicIds: testTopicIds ?? this.testTopicIds,
+      );
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -20,6 +38,9 @@ class EducationTopic {
     'description': description,
     'imageUrl': imageUrl,
     'sortOrder': sortOrder,
+    'hidden': hidden,
+    // змінює список PracticalService.setTestTopics; тут — лише щоб не загубити
+    if (testTopicIds.isNotEmpty) 'testTopicIds': testTopicIds,
   };
 
   factory EducationTopic.fromJson(Map<String, dynamic> json) => EducationTopic(
@@ -28,7 +49,32 @@ class EducationTopic {
     description: json['description']?.toString() ?? '',
     imageUrl: json['imageUrl'],
     sortOrder: json['sortOrder'] != null ? (json['sortOrder'] as num).toInt() : 0,
+    hidden: json['hidden'] == true,
+    testTopicIds: json['testTopicIds'] is List
+        ? (json['testTopicIds'] as List).map((e) => e.toString()).toList()
+        : const [],
   );
+}
+
+/// Порядок питань і карток, як на сайті (bySortOrder): sortOrder, далі id
+/// з урахуванням чисел (tq_…_2 < tq_…_10).
+int compareBySortOrder(int? aOrder, String aId, int? bOrder, String bId) {
+  final d = (aOrder ?? 0).compareTo(bOrder ?? 0);
+  return d != 0 ? d : compareNatural(aId, bId);
+}
+
+/// Порівняння рядків, де послідовності цифр порівнюються як числа.
+int compareNatural(String a, String b) {
+  final re = RegExp(r'\d+|\D+');
+  final pa = re.allMatches(a).map((m) => m[0]!).toList();
+  final pb = re.allMatches(b).map((m) => m[0]!).toList();
+  for (var i = 0; i < pa.length && i < pb.length; i++) {
+    final na = int.tryParse(pa[i]);
+    final nb = int.tryParse(pb[i]);
+    final c = na != null && nb != null ? na.compareTo(nb) : pa[i].compareTo(pb[i]);
+    if (c != 0) return c;
+  }
+  return pa.length.compareTo(pb.length);
 }
 
 // ── НАВЧАЛЬНИЙ МАТЕРІАЛ ──────────────────────────────────────────────────────
@@ -114,12 +160,15 @@ class Flashcard {
   final String topicId;
   final String question;
   final String answer;
+  /// Порядок у темі (імпорт CSV пише номер рядка); null у старих записах.
+  final int? sortOrder;
 
   Flashcard({
     required this.id,
     required this.topicId,
     required this.question,
     required this.answer,
+    this.sortOrder,
   });
 
   Map<String, dynamic> toJson() => {
@@ -127,6 +176,7 @@ class Flashcard {
     'topicId': topicId,
     'question': question,
     'answer': answer,
+    if (sortOrder != null) 'sortOrder': sortOrder,
   };
 
   factory Flashcard.fromJson(Map<String, dynamic> json) => Flashcard(
@@ -134,6 +184,7 @@ class Flashcard {
     topicId: json['topicId']?.toString() ?? '',
     question: json['question']?.toString() ?? '',
     answer: json['answer']?.toString() ?? '',
+    sortOrder: (json['sortOrder'] as num?)?.toInt(),
   );
 }
 
@@ -223,6 +274,8 @@ class TestQuestion {
   final List<String> options;
   final int correctIndex;
   final String? explanation;
+  /// Порядок у темі (імпорт CSV пише номер рядка); null у старих записах.
+  final int? sortOrder;
 
   TestQuestion({
     required this.id,
@@ -231,6 +284,7 @@ class TestQuestion {
     required this.options,
     required this.correctIndex,
     this.explanation,
+    this.sortOrder,
   });
 
   Map<String, dynamic> toJson() => {
@@ -240,6 +294,7 @@ class TestQuestion {
     'options': options,
     'correctIndex': correctIndex,
     'explanation': explanation,
+    if (sortOrder != null) 'sortOrder': sortOrder,
   };
 
   factory TestQuestion.fromJson(Map<String, dynamic> json) => TestQuestion(
@@ -251,5 +306,6 @@ class TestQuestion {
         ? json['correctIndex']
         : int.tryParse(json['correctIndex']?.toString() ?? '0') ?? 0,
     explanation: json['explanation'],
+    sortOrder: (json['sortOrder'] as num?)?.toInt(),
   );
 }
