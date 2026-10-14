@@ -187,6 +187,9 @@ function stepContent(step, redraw) {
   return out;
 }
 
+// щоденник і таблиці перевіряє викладач
+const SAVED = 'Збережено — викладач підтвердить';
+
 const KINDS = {
   profile: () => h('button', { class: 'btn block', onClick: () => openAccount() }, icon('person'), 'Відкрити «Мій акаунт» → «Мої дані»'),
 
@@ -262,7 +265,7 @@ const KINDS = {
       ...inputs.map(([, el]) => el),
       h('button', { class: 'btn block', onClick: () => {
         const val = Object.fromEntries(inputs.map(([k, el]) => [k, el.querySelector('textarea').value.trim()]));
-        persist({ diary: { [`d${step.day}`]: val } }, redraw);
+        persist({ diary: { [`d${step.day}`]: val }, steps: { [step.id]: { submittedAt: Date.now() } } }, redraw, SAVED);
       } }, icon('save'), 'Зберегти запис'),
     ];
   },
@@ -282,7 +285,7 @@ const KINDS = {
           rows.map((r) => r.el))),
       h('button', { class: 'btn block', onClick: () => {
         const val = Object.fromEntries(rows.map((r) => [r.d, { ex: r.boxes.map((b) => b.checked), sec: r.sec.value === '' ? null : Number(r.sec.value) }]));
-        persist({ breath: val }, redraw);
+        persist({ breath: val, steps: { [step.id]: { submittedAt: Date.now() } } }, redraw, SAVED);
       } }, icon('save'), 'Зберегти таблицю'),
     ];
   },
@@ -297,7 +300,7 @@ const KINDS = {
           rows.map((r) => h('tr', {}, h('td', { style: { padding: '4px 0' } }, r.s), r.boxes.map(([, b]) => h('td', { style: { textAlign: 'center' } }, b)))))),
       h('button', { class: 'btn block', onClick: () => {
         const val = Object.fromEntries(rows.map((r) => [r.s, Object.fromEntries(r.boxes.map(([k, b]) => [k, b.checked]))]));
-        persist({ signals: val }, redraw);
+        persist({ signals: val, steps: { [step.id]: { submittedAt: Date.now() } } }, redraw, SAVED);
       } }, icon('save'), 'Зберегти'),
     ];
   },

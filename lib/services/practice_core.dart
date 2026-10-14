@@ -3,6 +3,8 @@
 // мають збігатися, бо сайт і застосунок пишуть ті самі документи
 // practice_work/{uid}. Тести: test/practice_core_test.dart.
 
+import 'dart:math' as math;
+
 const breathDates = ['30.09', '01.10', '02.10', '03.10', '04.10'];
 const breathExercises = ['Вдих 4 – затримка 2 – видих 8', 'Видих «с-с-с»', 'Атака «ту-ту»', 'Вібрація губ / мундштук'];
 const diaryFields = [
@@ -115,6 +117,9 @@ final int maxCurrent = allPracticeSteps
 final int maxExam = allPracticeSteps.where((s) => s.group == 'exam').fold(0, (a, s) => a + s.points); // 40
 const admissionMin = 35;
 
+/// Пункти, які після виконання студентом підтверджує викладач (решта — автоматично).
+const confirmKinds = [StepKind.check, StepKind.diary, StepKind.breath, StepKind.signals];
+
 /// Найкращі бали іспиту (теорія, аудіо) або null, якщо іспит не складено.
 typedef ExamPoints = ({num? theory, num? audio});
 
@@ -203,26 +208,30 @@ StepStatus stepStatus(PracticeStep step, Map<String, dynamic> work, Map<String, 
   final gp = g?['points'];
   final graded = g != null && g['status'] != 'revise' && g['status'] != 'none' && gp is num && gp.isFinite;
   StepStatus res(PracticeState st, String label, [num? points]) => StepStatus(st, label, points, max);
+  // відмітку, щоденник і таблиці студента підтверджує викладач; «Не підтверджено»
+  // знімається, коли студент змінив пункт після цього (doneAt / submittedAt)
+  StepStatus confirmStatus(bool studentDone, String todoLabel) {
+    if (graded) return res(PracticeState.graded, 'Виконано · Підтверджено');
+    final touched = math.max(toMs(s['doneAt']), toMs(s['submittedAt']));
+    if (g?['status'] == 'revise' && !(touched > 0 && g?['gradedAt'] != null && touched > toMs(g?['gradedAt']))) {
+      return res(PracticeState.revise, 'Не підтверджено');
+    }
+    return studentDone ? res(PracticeState.review, 'Очікування на підтвердження') : res(PracticeState.todo, todoLabel);
+  }
+
 
   switch (step.kind) {
     case StepKind.profile:
       return ctx.fullName.isNotEmpty && ctx.group.isNotEmpty ? res(PracticeState.done, 'Виконано') : res(PracticeState.todo, 'Не виконано');
     case StepKind.check:
-      // відмітку студента підтверджує викладач
-      if (graded) return res(PracticeState.graded, 'Виконано · Підтверджено');
-      if (g?['status'] == 'revise' &&
-          !(s['doneAt'] != null && g?['gradedAt'] != null && toMs(s['doneAt']) > toMs(g?['gradedAt']))) {
-        return res(PracticeState.revise, 'Не підтверджено');
-      }
-      return s['done'] == true ? res(PracticeState.review, 'Очікування на підтвердження') : res(PracticeState.todo, 'Не виконано');
+      return confirmStatus(s['done'] == true, 'Не виконано');
     case StepKind.diary:
-      return diaryDone(_map(work['diary'])['d${step.day}']) ? res(PracticeState.done, 'Виконано') : res(PracticeState.todo, 'Не заповнено');
+      return confirmStatus(diaryDone(_map(work['diary'])['d${step.day}']), 'Не заповнено');
     case StepKind.breath:
-      if (breathDone(work['breath'])) return res(PracticeState.done, 'Виконано');
       final t = _map(work['breath']);
-      return res(PracticeState.todo, 'Заповнено днів: ${breathDates.where((d) => _breathDay(t, d)).length} з ${breathDates.length}');
+      return confirmStatus(breathDone(t), 'Заповнено днів: ${breathDates.where((d) => _breathDay(t, d)).length} з ${breathDates.length}');
     case StepKind.signals:
-      return signalsDone(work['signals']) ? res(PracticeState.done, 'Виконано') : res(PracticeState.todo, 'Не заповнено');
+      return confirmStatus(signalsDone(work['signals']), 'Не заповнено');
     case StepKind.quiz:
       final best = bestByTopic(ctx.quizResults);
       final doneN = step.topics.where(best.containsKey).length;

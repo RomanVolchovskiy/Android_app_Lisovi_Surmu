@@ -322,9 +322,10 @@ class _StepGradeCardState extends State<_StepGradeCard> {
       if (step.kind == StepKind.breath) PracticeBreathView(d.work['breath']),
       if (step.kind == StepKind.signals) PracticeSignalsView(d.work['signals']),
     ];
-    // відмітку «Виконано» підтверджують, коли студент її поставив
+    // відмітку, щоденник і таблиці підтверджують, коли студент їх виконав
+    final confirm = confirmKinds.contains(step.kind);
     final gradable = const [StepKind.submit, StepKind.teacher, StepKind.exam].contains(step.kind) ||
-        (step.kind == StepKind.check && st.state != PracticeState.todo);
+        (confirm && st.state != PracticeState.todo);
     final max = step.points;
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -379,8 +380,8 @@ class _StepGradeCardState extends State<_StepGradeCard> {
             ]),
             const SizedBox(height: 6),
             Wrap(spacing: 6, runSpacing: 4, children: [
-              if (!(step.kind == StepKind.check && st.state == PracticeState.graded))
-                FilledButton.icon(onPressed: _save, icon: const Icon(Icons.check, size: 18), label: Text(max > 0 ? 'Оцінити' : step.kind == StepKind.check ? 'Підтвердити' : 'Прийняти')),
+              if (!(confirm && st.state == PracticeState.graded))
+                FilledButton.icon(onPressed: _save, icon: const Icon(Icons.check, size: 18), label: Text(max > 0 ? 'Оцінити' : confirm ? 'Підтвердити' : 'Прийняти')),
               if (step.kind == StepKind.submit)
                 TextButton.icon(
                   style: TextButton.styleFrom(foregroundColor: const Color(0xFFC62828)),
@@ -394,7 +395,7 @@ class _StepGradeCardState extends State<_StepGradeCard> {
                   icon: const Icon(Icons.replay, size: 18),
                   label: const Text('На доопрацювання'),
                 ),
-              if (step.kind == StepKind.check)
+              if (confirm)
                 TextButton.icon(
                   style: TextButton.styleFrom(foregroundColor: const Color(0xFFC62828)),
                   onPressed: () => widget.onGrade(points: null, comment: _comment.text.trim(), status: 'revise'),

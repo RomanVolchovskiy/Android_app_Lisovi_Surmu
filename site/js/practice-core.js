@@ -3,8 +3,7 @@
 // Без DOM і Firebase — тести: scripts/site_tests/practice_core.test.mjs.
 //
 // Види кроків (kind):
-//   check   — студент ставить відмітку «Виконано» → «Очікування на підтвердження»,
-//             викладач підтверджує (без балів);
+//   check   — студент ставить відмітку «Виконано» (без балів);
 //   profile — «Мої дані» заповнені (ПІБ і група) — автоматично;
 //   submit  — студент додає файли й/або відмітку → «На перевірці», бали ставить викладач;
 //   quiz    — пробні теоретичні тести тем (topics) — автоматично з quiz_results;
@@ -15,6 +14,9 @@
 //   signals — облік розучених сигналів;
 //   exam    — бали з іспиту на сайті (part: 'theory' | 'audio') — автоматично;
 //   teacher — оцінює викладач на заліку (виконання сигналу, читання ритму).
+//
+// Усе, що не перевіряється автоматично (CONFIRM_KINDS), після виконання студентом
+// стає «Очікування на підтвердження», доки викладач не підтвердить.
 
 export const BREATH_DATES = ['30.09', '01.10', '02.10', '03.10', '04.10'];
 export const BREATH_EXERCISES = ['Вдих 4 – затримка 2 – видих 8', 'Видих «с-с-с»', 'Атака «ту-ту»', 'Вібрація губ / мундштук'];
@@ -110,6 +112,7 @@ export const STEP_BY_ID = Object.fromEntries(ALL_STEPS.map((s) => [s.id, s]));
 export const MAX_CURRENT = ALL_STEPS.filter((s) => ['pr', 'sr', 'report'].includes(s.group)).reduce((a, s) => a + s.points, 0); // 60
 export const MAX_EXAM = ALL_STEPS.filter((s) => s.group === 'exam').reduce((a, s) => a + s.points, 0); // 40
 export const ADMISSION_MIN = 35;
+export const CONFIRM_KINDS = ['check', 'diary', 'breath', 'signals'];
 
 /** Номер теми з назви «Практика. Тема N. …». */
 export function topicNumber(name) {
@@ -160,24 +163,27 @@ export function stepStatus(step, work = {}, grades = {}, ctx = {}) {
   // «none» — оцінку скинуто; points: null не рахуємо (Number(null) === 0)
   const graded = !!g && !['revise', 'none'].includes(g.status) && g.points != null && Number.isFinite(Number(g.points));
   const res = (state, label, points = null) => ({ state, label, points, max });
+  // відмітку, щоденник і таблиці студента підтверджує викладач; «Не підтверджено»
+  // знімається, коли студент змінив пункт після цього (doneAt / submittedAt)
+  const confirmStatus = (studentDone, todoLabel) => {
+    if (graded) return res('graded', 'Виконано · Підтверджено');
+    const touched = Math.max(toMs(s.doneAt), toMs(s.submittedAt));
+    if (g?.status === 'revise' && !(touched && g.gradedAt && touched > toMs(g.gradedAt))) return res('revise', 'Не підтверджено');
+    return studentDone ? res('review', 'Очікування на підтвердження') : res('todo', todoLabel);
+  };
 
   switch (step.kind) {
     case 'profile':
       return ctx.profile?.fullName && ctx.profile?.group ? res('done', 'Виконано') : res('todo', 'Не виконано');
     case 'check':
-      // відмітку студента підтверджує викладач
-      if (graded) return res('graded', 'Виконано · Підтверджено');
-      if (g?.status === 'revise' && !(s.doneAt && g.gradedAt && toMs(s.doneAt) > toMs(g.gradedAt))) {
-        return res('revise', 'Не підтверджено');
-      }
-      return s.done ? res('review', 'Очікування на підтвердження') : res('todo', 'Не виконано');
+      return confirmStatus(s.done, 'Не виконано');
     case 'diary':
-      return diaryDone(work?.diary?.[`d${step.day}`]) ? res('done', 'Виконано') : res('todo', 'Не заповнено');
+      return confirmStatus(diaryDone(work?.diary?.[`d${step.day}`]), 'Не заповнено');
     case 'breath':
-      return breathDone(work?.breath) ? res('done', 'Виконано')
-        : res('todo', `Заповнено днів: ${BREATH_DATES.filter((d) => work?.breath?.[d]?.ex?.some(Boolean)).length} з ${BREATH_DATES.length}`);
+      return confirmStatus(breathDone(work?.breath),
+        `Заповнено днів: ${BREATH_DATES.filter((d) => work?.breath?.[d]?.ex?.some(Boolean)).length} з ${BREATH_DATES.length}`);
     case 'signals':
-      return signalsDone(work?.signals) ? res('done', 'Виконано') : res('todo', 'Не заповнено');
+      return confirmStatus(signalsDone(work?.signals), 'Не заповнено');
     case 'quiz': {
       const best = bestByTopic(ctx.quizResults);
       const doneN = step.topics.filter((n) => n in best);

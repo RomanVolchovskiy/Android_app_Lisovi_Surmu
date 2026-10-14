@@ -57,13 +57,13 @@ void main() {
 
   test('щоденник, дихання, сигнали', () {
     expect(stepStatus(s('d1_diary'), {'diary': {'d1': {'aud': 'x', 'self': 'y', 'concl': ''}}}, {}).state, PracticeState.todo);
-    expect(stepStatus(s('d1_diary'), {'diary': {'d1': {'aud': 'x', 'self': 'y', 'concl': 'z'}}}, {}).state, PracticeState.done);
+    expect(stepStatus(s('d1_diary'), {'diary': {'d1': {'aud': 'x', 'self': 'y', 'concl': 'z'}}}, {}).state, PracticeState.review);
     final breath = {for (final d in breathDates) d: {'ex': [true, false, false, false], 'sec': 20}};
-    expect(stepStatus(s('d2_breath'), {'breath': breath}, {}).state, PracticeState.done);
+    expect(stepStatus(s('d2_breath'), {'breath': breath}, {}).state, PracticeState.review);
     breath.remove('03.10');
     expect(stepStatus(s('d2_breath'), {'breath': breath}, {}).label, contains('4 з 5'));
     final signals = {for (final x in trackedSignals) x: {'know': true}};
-    expect(stepStatus(s('d3_signals'), {'signals': signals}, {}).state, PracticeState.done);
+    expect(stepStatus(s('d3_signals'), {'signals': signals}, {}).state, PracticeState.review);
   });
 
   test('іспит: автоматичні бали, правка викладача має перевагу', () {
@@ -123,5 +123,18 @@ void main() {
     expect(st.state, PracticeState.review);
     expect(st.points, isNull);
     expect(stepStatus(s('e_signal'), {}, {'e_signal': {'points': null, 'status': 'none'}}).state, PracticeState.teacher);
+  });
+
+  test('щоденник і таблиці: підтвердження викладача, «не підтверджено» → виправлено → знову очікує', () {
+    final step = s('d2_diary');
+    final full = {'aud': 'a', 'self': 'b', 'concl': 'c'};
+    final work = {'diary': {'d2': full}, 'steps': {'d2_diary': {'submittedAt': 500}}};
+    expect(stepStatus(step, work, {}).label, 'Очікування на підтвердження');
+    expect(stepStatus(step, work, {'d2_diary': {'points': 0, 'status': 'graded'}}).label, 'Виконано · Підтверджено');
+    final no = {'d2_diary': {'points': null, 'status': 'revise', 'gradedAt': 1000, 'comment': 'мало'}};
+    expect(stepStatus(step, work, no).state, PracticeState.revise);
+    expect(stepStatus(step, {...work, 'steps': {'d2_diary': {'submittedAt': 2000}}}, no).state, PracticeState.review);
+    expect(stepStatus(step, {'diary': {'d2': {'aud': 'a'}}}, {}).state, PracticeState.todo);
+    expect(stepStatus(s('prep_profile'), {}, {}, const PracticeCtx(fullName: 'a', group: 'b')).state, PracticeState.done);
   });
 }

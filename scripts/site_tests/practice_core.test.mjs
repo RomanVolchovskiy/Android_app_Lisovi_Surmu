@@ -57,13 +57,13 @@ test('quiz і retest рахуються з quiz_results', () => {
 
 test('щоденник, дихання, сигнали', () => {
   assert.equal(stepStatus(STEP_BY_ID.d1_diary, { diary: { d1: { aud: 'x', self: 'y', concl: '' } } }).state, 'todo');
-  assert.equal(stepStatus(STEP_BY_ID.d1_diary, { diary: { d1: { aud: 'x', self: 'y', concl: 'z' } } }).state, 'done');
+  assert.equal(stepStatus(STEP_BY_ID.d1_diary, { diary: { d1: { aud: 'x', self: 'y', concl: 'z' } } }).state, 'review');
   const breath = Object.fromEntries(BREATH_DATES.map((d) => [d, { ex: [true, false, false, false], sec: 20 }]));
-  assert.equal(stepStatus(STEP_BY_ID.d2_breath, { breath }).state, 'done');
+  assert.equal(stepStatus(STEP_BY_ID.d2_breath, { breath }).state, 'review');
   delete breath['03.10'];
   assert.match(stepStatus(STEP_BY_ID.d2_breath, { breath }).label, /4 з 5/);
   const signals = Object.fromEntries(TRACKED_SIGNALS.map((s) => [s, { know: true }]));
-  assert.equal(stepStatus(STEP_BY_ID.d3_signals, { signals }).state, 'done');
+  assert.equal(stepStatus(STEP_BY_ID.d3_signals, { signals }).state, 'review');
 });
 
 test('іспит: автоматичні бали, правка викладача має перевагу', () => {
@@ -115,4 +115,19 @@ test('скинута оцінка (status none, points null) не рахуєть
   assert.equal(st.state, 'review');
   assert.equal(st.points, null);
   assert.equal(stepStatus(STEP_BY_ID.e_signal, {}, { e_signal: { points: null, status: 'none' } }).state, 'teacher');
+});
+
+test('щоденник і таблиці: підтвердження викладача, «не підтверджено» → виправлено → знову очікує', () => {
+  const step = STEP_BY_ID.d2_diary;
+  const full = { aud: 'a', self: 'b', concl: 'c' };
+  const work = { diary: { d2: full }, steps: { d2_diary: { submittedAt: 500 } } };
+  assert.equal(stepStatus(step, work, {}).label, 'Очікування на підтвердження');
+  assert.equal(stepStatus(step, work, { d2_diary: { points: 0, status: 'graded' } }).label, 'Виконано · Підтверджено');
+  const no = { d2_diary: { points: null, status: 'revise', gradedAt: 1000, comment: 'мало' } };
+  assert.equal(stepStatus(step, work, no).state, 'revise');
+  assert.equal(stepStatus(step, { ...work, steps: { d2_diary: { submittedAt: 2000 } } }, no).state, 'review');
+  // незаповнений щоденник не потрапляє на перевірку
+  assert.equal(stepStatus(step, { diary: { d2: { aud: 'a' } } }, {}).state, 'todo');
+  // автоматичні пункти — без підтвердження
+  assert.equal(stepStatus(STEP_BY_ID.prep_profile, {}, {}, { profile: { fullName: 'a', group: 'b' } }).state, 'done');
 });

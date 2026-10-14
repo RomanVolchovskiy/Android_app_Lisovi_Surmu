@@ -53,6 +53,9 @@ class _PracticeStepScreenState extends State<PracticeStepScreen> {
       s: {for (final (k, _) in signalSkills) k: _map(_map(_data.work['signals'])[s])[k] == true},
   };
 
+  /// Щоденник і таблиці перевіряє викладач.
+  static const _saved = 'Збережено — викладач підтвердить';
+
   PracticeStep get step => widget.step;
   Map<String, dynamic> get _stepWork => _map(_map(_data.work['steps'])[step.id]);
   List<Map<String, dynamic>> get _files =>
@@ -331,7 +334,10 @@ class _PracticeStepScreenState extends State<PracticeStepScreen> {
             ),
           _primary(Icons.save_rounded, 'Зберегти запис', () {
             FocusScope.of(context).unfocus();
-            _persist({'diary': {'d${step.day}': {for (final e in _diary.entries) e.key: e.value.text.trim()}}}, 'Збережено');
+            _persist({
+              'diary': {'d${step.day}': {for (final e in _diary.entries) e.key: e.value.text.trim()}},
+              'steps': {step.id: {'submittedAt': DateTime.now().millisecondsSinceEpoch}},
+            }, _saved);
           }),
         ];
       case StepKind.breath:
@@ -486,7 +492,8 @@ class _PracticeStepScreenState extends State<PracticeStepScreen> {
               for (final d in breathDates)
                 d: {'ex': List<bool>.from(_breath[d]!), 'sec': int.tryParse(_breathSec[d]!.text.trim())},
             },
-          }, 'Збережено');
+            'steps': {step.id: {'submittedAt': DateTime.now().millisecondsSinceEpoch}},
+          }, _saved);
         }),
       ];
 
@@ -514,7 +521,10 @@ class _PracticeStepScreenState extends State<PracticeStepScreen> {
             ],
           ),
         ])),
-        _primary(Icons.save_rounded, 'Зберегти', () => _persist({'signals': {for (final e in _signals.entries) e.key: Map<String, bool>.from(e.value)}}, 'Збережено')),
+        _primary(Icons.save_rounded, 'Зберегти', () => _persist({
+              'signals': {for (final e in _signals.entries) e.key: Map<String, bool>.from(e.value)},
+              'steps': {step.id: {'submittedAt': DateTime.now().millisecondsSinceEpoch}},
+            }, _saved)),
       ];
 }
 
