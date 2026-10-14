@@ -3,7 +3,8 @@
 import { createShell } from './views/shell.js';
 import { renderSignals } from './views/signals.js';
 import { renderFavorites } from './views/favorites.js';
-import { renderEducation, renderPractice } from './views/education.js';
+import { renderEducation } from './views/education.js';
+import { renderPractice } from './views/practice.js';
 import { renderEvents } from './views/events.js';
 import { renderAuth, renderVerify, renderExpired, renderGateError } from './views/access.js';
 import { waitForSignals } from './data.js';

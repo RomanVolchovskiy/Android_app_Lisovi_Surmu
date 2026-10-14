@@ -12,6 +12,7 @@ import { openAdminAccess } from './admin-access.js';
 import { openAdminEducation } from './admin-education.js';
 import { openAdminExams } from './admin-exams.js';
 import { openAdminPokit } from './admin-pokit.js';
+import { openAdminPractice } from './admin-practice.js';
 import { isAdminUser, loadConfig } from '../access.js';
 
 // Доступ — за акаунтом Firebase Auth (isAdminUser), а не за паролем:
@@ -40,6 +41,7 @@ function openAdminPanel() {
         tile('assignment', 'Практичні матеріали', 'Практичні теми (дні практики), матеріали, тест дня, план', () => openAdminEducation('practical')),
         tile('event_note', 'Управління подіями', 'Глобальні мисливські події', () => openAdminEvents()),
         tile('quiz', 'Управління іспитами', 'Сесії іспитів та результати', () => openAdminExams()),
+        tile('fact_check', 'Практика: роботи й оцінки', 'Виконання кроків студентами, файли, щоденники, бали, CSV', () => openAdminPractice()),
         tile('pets', 'Покіт: розкладка здобичі', 'Довідник видів і порядок розкладки', () => openAdminPokit()),
         tile('vpn_key', 'Коди доступу', 'Пробний період, корпоративні домени, коди', () => openAdminAccess()))));
   });

@@ -90,12 +90,18 @@ export function pushScreen(build) {
   history.pushState({ screen: stack.length }, '');
   return ctx;
 }
+// Підписники на закриття екрана (напр., «Практика» оновлює статуси після тесту)
+const closeListeners = new Set();
+export function onScreenClosed(cb) { closeListeners.add(cb); return () => closeListeners.delete(cb); }
+const notifyClosed = () => closeListeners.forEach((cb) => { try { cb(stack.length); } catch (e) { console.error(e); } });
+
 export function popScreen(el) {
   const i = el ? stack.findIndex((s) => s.el === el) : stack.length - 1;
   if (i < 0) return;
   const [{ el: e, ctx }] = stack.splice(i, 1);
   ctx.onPop?.();
   e.remove();
+  notifyClosed();
 }
 /** Закриває всі повноекранні екрани (вихід з акаунта, втрата доступу). */
 export function closeAllScreens() {
@@ -103,7 +109,7 @@ export function closeAllScreens() {
 }
 window.addEventListener('popstate', () => {
   // кнопка «назад» браузера закриває верхній екран
-  if (stack.length) { const { el: e, ctx } = stack.pop(); ctx.onPop?.(); e.remove(); }
+  if (stack.length) { const { el: e, ctx } = stack.pop(); ctx.onPop?.(); e.remove(); notifyClosed(); }
 });
 
 export function appBar(title, { back = null, actions = [], cls = '', small = false } = {}) {

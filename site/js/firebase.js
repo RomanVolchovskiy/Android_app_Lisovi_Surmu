@@ -3,10 +3,10 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/fireba
 import {
   getFirestore, collection, doc, getDocs, getDoc, getDocFromServer, setDoc, updateDoc, deleteDoc,
   onSnapshot, query, where, orderBy, limit, writeBatch, runTransaction,
-  serverTimestamp, increment, arrayUnion, Timestamp,
+  serverTimestamp, increment, arrayUnion, Timestamp, deleteField,
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
 import {
-  getStorage, ref as storageRef, uploadBytes, getDownloadURL,
+  getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject,
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js';
 import {
   getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
@@ -28,8 +28,8 @@ export const auth = getAuth(app);
 auth.languageCode = 'uk';
 export {
   collection, doc, getDocs, getDoc, getDocFromServer, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, limit,
-  writeBatch, runTransaction, serverTimestamp, increment, arrayUnion, Timestamp,
-  storageRef, uploadBytes, getDownloadURL,
+  writeBatch, runTransaction, serverTimestamp, increment, arrayUnion, Timestamp, deleteField,
+  storageRef, uploadBytes, getDownloadURL, deleteObject,
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
   sendEmailVerification, sendPasswordResetEmail, signOut,
 };

@@ -59,7 +59,7 @@ export function renderEducation(container) {
 
 // ── Список тем ───────────────────────────────────────────────────────────────
 /** Теми для студентів: приховані (лише для іспитів) не показуються. */
-const visibleTopics = async () => (await col('edu_topics')).filter((t) => t.hidden !== true);
+export const visibleTopics = async () => (await col('edu_topics')).filter((t) => t.hidden !== true);
 
 function topicList(topics, ic, emptyHint, onOpen) {
   if (!topics.length) return emptyState(ic, emptyHint);
@@ -78,40 +78,7 @@ async function practiceTab() {
   return topicList(topics, 'assignment', 'Дні практики ще не додані', (t) => openTopic(t, 'practical_materials'));
 }
 
-// ── Окремий розділ «Практика» (нижня навігація) ─────────────────────────────
-// Усе для навчальної практики в одному місці: дні з тестом дня, аудіотест
-// «Сигнали практики», мої результати, план і залік за кодом сесії.
-export function renderPractice(container) {
-  const body = h('div', { class: 'list' }, spinner());
-  container.append(body);
-  buildPractice().then((el) => clear(body).append(el))
-    .catch((e) => clear(body).append(emptyState('error_outline', 'Помилка завантаження', e.message)));
-}
-
-async function buildPractice() {
-  const [days, signals] = await Promise.all([practiceTab(), waitForSignals()]);
-  const hasPracticeSignals = signalPool(signals, { tag: PRACTICE_TAG }).length >= 4;
-  const action = (ic, title, subtitle, color, onClick) => h('div', { class: 'tile', style: { cursor: 'pointer' }, onClick },
-    h('div', { style: { width: '44px', height: '44px', borderRadius: '12px', background: `${color}1f`, display: 'grid', placeItems: 'center', color } }, icon(ic)),
-    h('div', { class: 'grow' }, h('div', { class: 't' }, title), h('div', { class: 's' }, subtitle)),
-    icon('chevron_right'));
-  return h('div', {},
-    h('div', { class: 'sec-title', style: { marginTop: 0 } }, icon('assignment'), ' Дні практики'),
-    h('div', { class: 's', style: { color: 'var(--grey-600)', margin: '-4px 0 10px' } }, 'Відкрийте день — там матеріали і «Пробний тест дня».'),
-    days,
-    h('div', { class: 'sec-title' }, icon('quiz'), ' Тренування'),
-    hasPracticeSignals ? action('campaign', 'Сигнали практики', 'Аудіотест: впізнайте сигнал на слух', '#5D4037', () => startAudioTest({ tag: PRACTICE_TAG })) : null,
-    action('history', 'Мої результати', 'Останні 50 пробних тестів — для щоденника практики', '#5D4037', openMyResults),
-    action('checklist', 'План навчання', 'Тематичний план і години', '#2E7D32', openPlanScreen),
-    h('div', { class: 'sec-title' }, icon('school'), ' Залік'),
-    h('div', { class: 'tile', style: { flexDirection: 'column', alignItems: 'stretch', gap: '8px', borderLeft: '4px solid #1565C0' } },
-      h('div', { class: 'dk-row' },
-        h('div', { style: { width: '44px', height: '44px', borderRadius: '12px', background: '#1565C01f', display: 'grid', placeItems: 'center', color: '#1565C0' } }, icon('school')),
-        h('div', { class: 'grow' }, h('div', { class: 't' }, 'Іспит (залік)'), h('div', { class: 's' }, 'Введіть код сесії, який дасть викладач'))),
-      h('button', { class: 'btn', onClick: () => openExamEntry() }, 'Ввести код сесії')));
-}
-
-function openPlanScreen() {
+export function openPlanScreen() {
   pushScreen(({ pop }) => {
     const body = h('div', { class: 'body-inner' }, spinner());
     planTab().then((el) => clear(body).append(el))
@@ -130,7 +97,7 @@ const MATERIAL_TYPES = [
   ['image', 'image', 'Зображення', '#2E7D32'],
 ];
 
-function openTopic(topic, materialsCol) {
+export function openTopic(topic, materialsCol) {
   pushScreen(({ pop }) => {
     const body = h('div', { class: 'body-inner' }, spinner());
     const tests = h('div');
@@ -254,7 +221,7 @@ async function cardsTab() {
   return topicList(topics, 'style', 'Адмін ще не додав теми', openFlashcards);
 }
 
-async function openFlashcards(topic) {
+export async function openFlashcards(topic) {
   let cards = (await col('edu_flashcards', 'topicId', topic.id)).slice();
   if (!cards.length) { toast('До цієї теми ще не додані картки'); return; }
   pushScreen(({ pop }) => {
@@ -310,7 +277,7 @@ async function testsTab() {
       h('button', { class: 'btn', onClick: () => openExamEntry() }, 'Ввести код сесії')));
 }
 
-function openMyResults() {
+export function openMyResults() {
   pushScreen(({ pop }) => {
     const body = h('div', { class: 'body-inner' }, spinner());
     myQuizResults().then((rows) => {
@@ -334,7 +301,7 @@ function openMyResults() {
  * (усі сигнали). Хибні варіанти — з того самого набору, якщо в ньому ≥ 4
  * сигнали, інакше з усіх сигналів з аудіо (quiz-core.js → buildAudioItems).
  */
-function startAudioTest(filter) {
+export function startAudioTest(filter) {
   const all = getSignals();
   const withAudio = signalPool(all);
   const pool = filter == null ? withAudio
@@ -371,7 +338,7 @@ async function openTheoryTopics() {
 }
 
 /** Пробний теоретичний тест теми; варіанти перемішуються при кожному запуску. */
-async function startTheoryQuiz(t, shuffleQuestions) {
+export async function startTheoryQuiz(t, shuffleQuestions) {
   const qs = await col('edu_test_questions', 'topicId', t.id);
   if (!qs.length) { toast('До цієї теми ще не додані питання'); return; }
   const build = () => (shuffleQuestions ? shuffle(qs) : qs).map((q) => {
@@ -506,3 +473,5 @@ function metronomeTrainer() {
       h('div', { class: 'grow' }, h('div', { class: 't' }, 'Відкрити метроном'), h('div', { class: 's' }, 'Сильна доля — СОЛЬ2, слабкі — ДО2, підрозділи — ДО')),
       icon('play_arrow', '')));
 }
+
+export { col as eduCol, PRACTICE_TAG };

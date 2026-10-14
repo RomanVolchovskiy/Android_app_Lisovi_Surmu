@@ -34,6 +34,15 @@ service firebase.storage {
       allow delete: if isAdmin();
     }
 
+    // Роботи практики: студент завантажує у власну теку (фото зошита, звіт,
+    // реферат/презентація) до 20 МБ; читає й видаляє він і адміністратор.
+    match /practice_uploads/{uid}/{stepId}/{file} {
+      allow read, delete: if (signedIn() && request.auth.uid == uid) || isAdmin();
+      allow create: if signedIn() && request.auth.uid == uid
+                    && request.resource.size < 20 * 1024 * 1024
+                    && request.resource.contentType.matches('image/.*|application/pdf|application/msword|application/vnd[.]openxmlformats-officedocument[.].*|application/vnd[.]oasis[.]opendocument[.].*|application/vnd[.]ms-powerpoint|text/plain');
+    }
+
     // Файли іспитів — завантажує студент із застосунку (після входу).
     match /exam_files/{allPaths=**} {
       allow read, write: if signedIn();
