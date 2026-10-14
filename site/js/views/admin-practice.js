@@ -99,7 +99,8 @@ function stepCard(num, step, data, onGrade) {
   if (step.kind === 'signals') details.push(signalsView(work.signals));
   if (details.length) parts.push(h('details', { open: st.state === 'review', style: { marginTop: '8px' } }, h('summary', { style: { cursor: 'pointer', color: 'var(--primary)' } }, 'Подивитися'), ...details));
 
-  const gradable = ['submit', 'teacher', 'exam'].includes(step.kind);
+  // відмітку «Виконано» підтверджують, коли студент її поставив
+  const gradable = ['submit', 'teacher', 'exam'].includes(step.kind) || (step.kind === 'check' && st.state !== 'todo');
   if (gradable) {
     const max = step.points || 0;
     const pts = h('input', { type: 'number', min: 0, max, step: 1, value: g && g.status !== 'revise' && g.points != null ? g.points : '', placeholder: step.kind === 'exam' && st.points != null ? `авто: ${st.points}` : '', style: { width: '80px' } });
@@ -114,11 +115,14 @@ function stepCard(num, step, data, onGrade) {
     parts.push(h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', marginTop: '10px' } },
       max ? h('label', { class: 'dk-row', style: { gap: '4px' } }, pts, h('span', { class: 's' }, `з ${max}`)) : null,
       comment,
-      h('button', { class: 'btn', style: { padding: '6px 14px' }, onClick: save }, icon('check'), max ? 'Оцінити' : 'Прийняти'),
+      step.kind === 'check' && st.state === 'graded' ? null
+        : h('button', { class: 'btn', style: { padding: '6px 14px' }, onClick: save }, icon('check'), max ? 'Оцінити' : step.kind === 'check' ? 'Підтвердити' : 'Прийняти'),
       step.kind === 'submit' ? h('button', { class: 'btn text', style: { padding: '6px 10px', color: '#C62828' }, onClick: () => {
         if (!comment.value.trim()) { toast('Напишіть у коментарі, що доопрацювати', 'err'); return; }
         onGrade({ points: null, comment: comment.value.trim(), status: 'revise' });
       } }, icon('replay'), 'На доопрацювання') : null,
+      step.kind === 'check' ? h('button', { class: 'btn text', style: { padding: '6px 10px', color: '#C62828' }, onClick: () => onGrade({ points: null, comment: comment.value.trim(), status: 'revise' }) },
+        icon('close'), 'Не підтверджено') : null,
       g ? h('button', { class: 'btn text', style: { padding: '6px 10px' }, title: step.kind === 'exam' ? 'Повернути автоматичні бали іспиту' : 'Скинути оцінку', onClick: () => onGrade({ points: null, comment: '', status: 'none' }) }, icon('backspace'), 'Скинути') : null));
   }
   return h('div', { class: 'tile', style: { display: 'block', borderLeft: `4px solid ${style.color}` } }, ...parts);

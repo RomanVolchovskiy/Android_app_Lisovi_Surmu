@@ -6,6 +6,7 @@ import 'package:hunting_signals/screens/admin_events_screen.dart';
 import 'package:hunting_signals/screens/edit_signals_screen.dart';
 import 'package:hunting_signals/screens/admin_exam_screen.dart';
 import 'package:hunting_signals/screens/admin_pokit_screen.dart';
+import 'package:hunting_signals/screens/admin_practice_screen.dart';
 import 'package:hunting_signals/screens/admin_access_screen.dart';
 
 class AdminPanelScreen extends StatefulWidget {
@@ -221,6 +222,18 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                         context,
                         MaterialPageRoute(
                           builder: (context) => const AdminExamScreen(),
+                        ),
+                      ),
+                    ),
+                    _buildAdminCard(
+                      context,
+                      'Практика: роботи й оцінки',
+                      Icons.assignment_turned_in_rounded,
+                      Colors.teal,
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const AdminPracticeScreen(),
                         ),
                       ),
                     ),

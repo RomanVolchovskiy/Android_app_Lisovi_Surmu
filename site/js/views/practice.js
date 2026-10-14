@@ -195,9 +195,11 @@ const KINDS = {
     return [
       step.action?.type === 'metronome' ? h('button', { class: 'btn text block', style: { marginBottom: '8px', border: '1px solid var(--primary)' }, onClick: () => openMetronome() }, icon('timer'), 'Відкрити метроном') : null,
       step.action?.type === 'cards' ? h('button', { class: 'btn text block', style: { marginBottom: '8px', border: '1px solid var(--primary)' }, onClick: openCards }, icon('style'), 'Флеш-картки') : null,
-      s.done
-        ? h('button', { class: 'btn text block', onClick: () => persist({ steps: { [step.id]: { done: false } } }, redraw, 'Відмітку знято') }, icon('undo'), 'Зняти відмітку')
-        : h('button', { class: 'btn block', onClick: () => persist({ steps: { [step.id]: { done: true, doneAt: Date.now() } } }, redraw, 'Виконано') }, icon('check'), 'Позначити виконаним'),
+      st.state === 'graded' ? null
+        : st.state === 'review'
+          ? h('button', { class: 'btn text block', onClick: () => persist({ steps: { [step.id]: { done: false } } }, redraw, 'Відмітку знято') }, icon('undo'), 'Зняти відмітку')
+          : h('button', { class: 'btn block', onClick: () => persist({ steps: { [step.id]: { done: true, doneAt: Date.now() } } }, redraw, 'Відмітку надіслано викладачу') }, icon('check'),
+            st.state === 'revise' ? 'Позначити виконаним знову' : 'Позначити виконаним'),
     ];
   },
 

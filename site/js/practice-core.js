@@ -3,7 +3,8 @@
 // Без DOM і Firebase — тести: scripts/site_tests/practice_core.test.mjs.
 //
 // Види кроків (kind):
-//   check   — студент ставить відмітку «Виконано» (без балів);
+//   check   — студент ставить відмітку «Виконано» → «Очікування на підтвердження»,
+//             викладач підтверджує (без балів);
 //   profile — «Мої дані» заповнені (ПІБ і група) — автоматично;
 //   submit  — студент додає файли й/або відмітку → «На перевірці», бали ставить викладач;
 //   quiz    — пробні теоретичні тести тем (topics) — автоматично з quiz_results;
@@ -156,14 +157,20 @@ export function stepStatus(step, work = {}, grades = {}, ctx = {}) {
   const max = step.points || 0;
   const g = grades?.[step.id];
   const s = work?.steps?.[step.id] || {};
-  const graded = g && g.status !== 'revise' && Number.isFinite(Number(g.points));
+  // «none» — оцінку скинуто; points: null не рахуємо (Number(null) === 0)
+  const graded = !!g && !['revise', 'none'].includes(g.status) && g.points != null && Number.isFinite(Number(g.points));
   const res = (state, label, points = null) => ({ state, label, points, max });
 
   switch (step.kind) {
     case 'profile':
       return ctx.profile?.fullName && ctx.profile?.group ? res('done', 'Виконано') : res('todo', 'Не виконано');
     case 'check':
-      return s.done ? res('done', 'Виконано') : res('todo', 'Не виконано');
+      // відмітку студента підтверджує викладач
+      if (graded) return res('graded', 'Виконано · Підтверджено');
+      if (g?.status === 'revise' && !(s.doneAt && g.gradedAt && toMs(s.doneAt) > toMs(g.gradedAt))) {
+        return res('revise', 'Не підтверджено');
+      }
+      return s.done ? res('review', 'Очікування на підтвердження') : res('todo', 'Не виконано');
     case 'diary':
       return diaryDone(work?.diary?.[`d${step.day}`]) ? res('done', 'Виконано') : res('todo', 'Не заповнено');
     case 'breath':

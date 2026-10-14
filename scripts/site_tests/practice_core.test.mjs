@@ -94,3 +94,25 @@ test('підсумок, допуск і оцінка', () => {
   assert.equal(ectsGrade(34).ects, 'F');
   assert.equal(nextStep({}, {}, {}).id, 'prep_profile');
 });
+
+test('check: відмітка студента → очікування підтвердження → підтверджено / не підтверджено', () => {
+  const step = STEP_BY_ID.d1_safety;
+  assert.equal(stepStatus(step, {}, {}).state, 'todo');
+  const work = { steps: { d1_safety: { done: true, doneAt: 500 } } };
+  const r = stepStatus(step, work, {});
+  assert.equal(r.state, 'review');
+  assert.equal(r.label, 'Очікування на підтвердження');
+  assert.equal(stepStatus(step, work, { d1_safety: { points: 0, status: 'graded' } }).label, 'Виконано · Підтверджено');
+  const no = { d1_safety: { points: null, status: 'revise', gradedAt: 1000 } };
+  assert.equal(stepStatus(step, work, no).state, 'revise');
+  assert.equal(stepStatus(step, { steps: { d1_safety: { done: true, doneAt: 2000 } } }, no).state, 'review');
+  assert.equal(nextStep({ steps: { prep_rules: { done: true }, prep_diary: { done: true } } }, {}, { profile: { fullName: 'a', group: 'b' } }).id, 'd1_safety');
+  assert.equal(totals(work, {}).review, 1);
+});
+
+test('скинута оцінка (status none, points null) не рахується як 0 балів', () => {
+  const st = stepStatus(STEP_BY_ID.d1_pr, { steps: { d1_pr: { done: true } } }, { d1_pr: { points: null, status: 'none' } });
+  assert.equal(st.state, 'review');
+  assert.equal(st.points, null);
+  assert.equal(stepStatus(STEP_BY_ID.e_signal, {}, { e_signal: { points: null, status: 'none' } }).state, 'teacher');
+});

@@ -5,18 +5,24 @@ import 'package:hunting_signals/models/hunting_models.dart';
 import 'package:hunting_signals/services/exam_service.dart';
 import 'package:hunting_signals/services/hunting_data_service.dart';
 import 'package:hunting_signals/services/practical_service.dart';
+import 'package:hunting_signals/services/practice_core.dart';
+import 'package:hunting_signals/services/practice_service.dart';
 import 'package:hunting_signals/screens/education_topic_screen.dart';
 import 'package:hunting_signals/screens/my_quiz_results_screen.dart';
+import 'package:hunting_signals/screens/practice_step_screen.dart';
 import 'package:hunting_signals/screens/study_plan_screen.dart';
 import 'package:hunting_signals/screens/test_screen.dart';
 import 'package:hunting_signals/theme/hunting_theme.dart';
+import 'package:hunting_signals/widgets/practice_widgets.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Тег сигналів, які студенти вивчають на навчальній практиці (ТЗ 3.6).
 const kPracticeTag = 'практика';
 
 /// Окремий розділ «Практика» (нижня навігація), як на сайті (#/practice):
-/// дні практики з тестом дня, «Сигнали практики», мої результати, план і залік.
+/// послідовність робіт практики за «Покроковою інструкцією студента» —
+/// відмітки, файли, щоденник, самоконтроль, автоматичні результати тестів і
+/// іспиту; угорі — бали, допуск до заліку й підсумкова оцінка.
 class PracticeScreen extends StatefulWidget {
   const PracticeScreen({super.key});
 
@@ -27,6 +33,8 @@ class PracticeScreen extends StatefulWidget {
 class _PracticeScreenState extends State<PracticeScreen> {
   List<EducationTopic> _days = [];
   bool _hasPracticeSignals = false;
+  PracticeData? _data;
+  String? _error;
   bool _loading = true;
 
   @override
@@ -45,79 +53,172 @@ class _PracticeScreenState extends State<PracticeScreen> {
     // «Сигнали практики» — лише коли з тегом і аудіо є щонайменше 4 сигнали
     final tagged = signals.where((s) =>
         (s.tags?.contains(kPracticeTag) ?? false) && (s.audioUrl?.isNotEmpty ?? false)).length;
+    PracticeData? data;
+    String? error;
+    try {
+      data = await PracticeService.loadMine();
+    } catch (e) {
+      error = e.toString().replaceFirst('Exception: ', '');
+    }
     if (mounted) {
       setState(() {
         _days = days;
         _hasPracticeSignals = tagged >= 4;
+        _data = data;
+        _error = error;
         _loading = false;
       });
     }
   }
 
-  void _push(Widget screen) =>
-      Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+  /// Після тесту, «Мій акаунт», кроку тощо — оновити автоматичні статуси.
+  Future<void> _push(Widget screen) async {
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+    if (mounted) _load();
+  }
+
+  void _openStep(PracticeStep step) => _push(PracticeStepScreen(step: step, data: _data!, days: _days));
 
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
+    final data = _data;
+    final children = <Widget>[];
+    if (data == null) {
+      children.add(Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(children: [
+            const Icon(Icons.error_outline, size: 40, color: Colors.grey),
+            const SizedBox(height: 8),
+            const Text('Не вдалося завантажити практику. Перевірте інтернет і спробуйте ще раз.',
+                textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w600)),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(_error!, textAlign: TextAlign.center, maxLines: 3, overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+              ),
+            TextButton.icon(onPressed: _load, icon: const Icon(Icons.refresh), label: const Text('Спробувати ще')),
+          ]),
+        ),
+      ));
+    } else {
+      final t = practiceTotals(data.work, data.grades, data.ctx);
+      final next = nextPracticeStep(data.work, data.grades, data.ctx);
+      children.add(PracticeSummaryCard(t));
+      if (next != null) {
+        children.add(Card(
+          margin: const EdgeInsets.only(bottom: 10),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: const BorderSide(color: Color(0xFFD4A017), width: 1.5),
+          ),
+          child: ListTile(
+            leading: const Icon(Icons.arrow_forward_rounded, color: Color(0xFFB8860B)),
+            title: Text('Далі', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            subtitle: Text(next.title, style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.black87, fontSize: 15)),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => _openStep(next),
+          ),
+        ));
+      }
+    }
+    children.add(Wrap(spacing: 8, runSpacing: 4, children: [
+      ActionChip(
+        avatar: const Icon(Icons.history_rounded, size: 18),
+        label: const Text('Мої результати'),
+        onPressed: () => _push(const MyQuizResultsScreen()),
+      ),
+      ActionChip(
+        avatar: const Icon(Icons.checklist_rounded, size: 18),
+        label: const Text('План навчання'),
+        onPressed: () => _push(Scaffold(
+          backgroundColor: HuntingTheme.backgroundColor,
+          appBar: AppBar(title: const Text('План навчання')),
+          body: const StudyPlanScreen(),
+        )),
+      ),
+      if (_hasPracticeSignals)
+        ActionChip(
+          avatar: const Icon(Icons.campaign_rounded, size: 18),
+          label: const Text('Сигнали практики'),
+          onPressed: () => _push(const TestScreen(tag: kPracticeTag)),
+        ),
+    ]));
+
+    if (data != null) {
+      var n = 0;
+      for (final stage in practiceStages) {
+        final sts = [for (final s in stage.steps) stepStatus(s, data.work, data.grades, data.ctx)];
+        final ok = sts.where((s) => const [PracticeState.done, PracticeState.graded, PracticeState.review].contains(s.state)).length;
+        final topic = stage.day == null ? null : practiceDayTopic(_days, stage.day!);
+        children.add(Padding(
+          padding: const EdgeInsets.only(top: 18, bottom: 6),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(stage.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF4E342E))),
+            Text('${stage.date} · $ok/${stage.steps.length}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+          ]),
+        ));
+        if (topic != null) {
+          children.add(Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => _push(EducationTopicScreen(topic: topic, materialLoader: PracticalService.getMaterialsByTopic)),
+              icon: const Icon(Icons.folder_open_rounded),
+              label: const Text('Матеріали дня і «Пробний тест дня»'),
+            ),
+          ));
+        }
+        for (var i = 0; i < stage.steps.length; i++) {
+          n++;
+          final step = stage.steps[i];
+          final st = sts[i];
+          children.add(Card(
+            margin: const EdgeInsets.only(bottom: 8),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: () => _openStep(step),
+              child: Container(
+                decoration: BoxDecoration(border: Border(left: BorderSide(color: practiceStateStyle(st.state).color, width: 4))),
+                padding: const EdgeInsets.fromLTRB(10, 10, 6, 10),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  PracticeNumberBadge(n, st.state),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(step.title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                      PracticeStatusChip(st),
+                    ]),
+                  ),
+                  const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+                ]),
+              ),
+            ),
+          ));
+        }
+      }
+    }
+    children
+      ..add(const SizedBox(height: 18))
+      ..add(const _SectionTitle(icon: Icons.school_rounded, title: 'Залік'))
+      ..add(const ExamOnSiteCard());
+
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-        children: [
-          const _SectionTitle(icon: Icons.assignment_rounded, title: 'Дні практики'),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: Text('Відкрийте день — там матеріали і «Пробний тест дня».',
-                style: TextStyle(fontSize: 13, color: Colors.grey[600])),
-          ),
-          if (_days.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Text('Дні практики ще не додані', style: TextStyle(color: Colors.grey[600])),
-            ),
-          for (var i = 0; i < _days.length; i++)
-            _Tile(
-              leading: _NumberBadge(i + 1),
-              title: _days[i].name,
-              subtitle: _days[i].description,
-              onTap: () => _push(EducationTopicScreen(
-                topic: _days[i],
-                materialLoader: PracticalService.getMaterialsByTopic,
-              )),
-            ),
-          const SizedBox(height: 12),
-          const _SectionTitle(icon: Icons.quiz_rounded, title: 'Тренування'),
-          if (_hasPracticeSignals)
-            _Tile(
-              leading: const _IconBadge(Icons.campaign_rounded, Color(0xFF5D4037)),
-              title: 'Сигнали практики',
-              subtitle: 'Аудіотест: впізнайте сигнал на слух',
-              onTap: () => _push(const TestScreen(tag: kPracticeTag)),
-            ),
-          _Tile(
-            leading: const _IconBadge(Icons.history_rounded, Color(0xFF5D4037)),
-            title: 'Мої результати',
-            subtitle: 'Останні 50 пробних тестів — для щоденника практики',
-            onTap: () => _push(const MyQuizResultsScreen()),
-          ),
-          _Tile(
-            leading: const _IconBadge(Icons.checklist_rounded, Color(0xFF2E7D32)),
-            title: 'План навчання',
-            subtitle: 'Тематичний план і години',
-            onTap: () => _push(Scaffold(
-              backgroundColor: HuntingTheme.backgroundColor,
-              appBar: AppBar(title: const Text('План навчання')),
-              body: const StudyPlanScreen(),
-            )),
-          ),
-          const SizedBox(height: 12),
-          const _SectionTitle(icon: Icons.school_rounded, title: 'Залік'),
-          const ExamOnSiteCard(),
-        ],
-      ),
+      child: ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 24), children: children),
     );
   }
+}
+
+/// Тема «День N …» серед практичних тем.
+EducationTopic? practiceDayTopic(List<EducationTopic> days, int n) {
+  final re = RegExp('^\\s*День\\s*$n\\b');
+  for (final t in days) {
+    if (re.hasMatch(t.name)) return t;
+  }
+  return null;
 }
 
 class _SectionTitle extends StatelessWidget {
@@ -133,59 +234,6 @@ class _SectionTitle extends StatelessWidget {
           const SizedBox(width: 6),
           Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF4E342E))),
         ]),
-      );
-}
-
-class _Tile extends StatelessWidget {
-  final Widget leading;
-  final String title;
-  final String? subtitle;
-  final VoidCallback onTap;
-  const _Tile({required this.leading, required this.title, this.subtitle, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) => Card(
-        margin: const EdgeInsets.only(bottom: 10),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          leading: leading,
-          title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-          subtitle: (subtitle?.isNotEmpty ?? false) ? Text(subtitle!) : null,
-          trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: onTap,
-        ),
-      );
-}
-
-class _NumberBadge extends StatelessWidget {
-  final int n;
-  const _NumberBadge(this.n);
-
-  @override
-  Widget build(BuildContext context) => Container(
-        width: 40,
-        height: 40,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: HuntingTheme.primaryColor.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Text('$n', style: TextStyle(fontWeight: FontWeight.bold, color: HuntingTheme.primaryColor)),
-      );
-}
-
-class _IconBadge extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  const _IconBadge(this.icon, this.color);
-
-  @override
-  Widget build(BuildContext context) => Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
-        child: Icon(icon, color: color),
       );
 }
 

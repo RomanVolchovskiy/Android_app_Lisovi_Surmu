@@ -114,7 +114,8 @@ class _TheoryPracticeTestScreenState extends State<TheoryPracticeTestScreen> {
       startTheoryPracticeTest(context, topic);
 }
 
-/// Пробний тест теми (і «тест дня» з практичної теми).
+/// Пробний тест теми (і «тест дня» з практичної теми). Завершується, коли
+/// студент закриє тест.
 Future<void> startTheoryPracticeTest(BuildContext context, EducationTopic topic) async {
   final questions = await EducationService.getTestQuestionsByTopic(topic.id);
   if (!context.mounted) return;
@@ -124,7 +125,7 @@ Future<void> startTheoryPracticeTest(BuildContext context, EducationTopic topic)
     );
     return;
   }
-  Navigator.push(context, MaterialPageRoute(
+  await Navigator.push(context, MaterialPageRoute(
     builder: (_) => _TheoryTestQuizScreen(topic: topic, questions: questions),
   ));
 }
