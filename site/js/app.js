@@ -3,7 +3,7 @@
 import { createShell } from './views/shell.js';
 import { renderSignals } from './views/signals.js';
 import { renderFavorites } from './views/favorites.js';
-import { renderEducation } from './views/education.js';
+import { renderEducation, renderPractice } from './views/education.js';
 import { renderEvents } from './views/events.js';
 import { renderAuth, renderVerify, renderExpired, renderGateError } from './views/access.js';
 import { waitForSignals } from './data.js';
@@ -13,6 +13,7 @@ import { h, closeAllScreens } from './ui.js';
 const TAB_VIEWS = {
   signals: (c) => renderSignals(c),
   education: (c) => renderEducation(c),
+  practice: (c) => renderPractice(c),
   events: (c) => renderEvents(c),
   favorites: (c) => renderFavorites(c, { onGoToSignals: () => go('signals') }),
 };

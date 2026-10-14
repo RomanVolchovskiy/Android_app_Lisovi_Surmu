@@ -1,5 +1,5 @@
 // Каркас (MainNavigation): app bar із заголовком вкладки, банер, вміст,
-// нижня навігація з чотирма вкладками.
+// нижня навігація з п'ятьма вкладками.
 import { h, icon, clear } from '../ui.js';
 import { audio } from '../audio.js';
 import { openAdmin } from './admin.js';
@@ -10,6 +10,7 @@ import { getSignals } from '../data.js';
 const TABS = [
   { id: 'signals', title: 'Мисливські Сигнали', label: 'Сигнали', icon: 'surround_sound' },
   { id: 'education', title: 'Навчальні Матеріали', label: 'Навчання', icon: 'school' },
+  { id: 'practice', title: 'Навчальна практика', label: 'Практика', icon: 'assignment' },
   { id: 'events', title: 'Мисливські події', label: 'Події', icon: 'event' },
   { id: 'favorites', title: 'Обрані Сигнали', label: 'Обране', icon: 'favorite' },
 ];

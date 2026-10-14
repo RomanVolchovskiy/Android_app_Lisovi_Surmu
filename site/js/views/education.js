@@ -34,7 +34,6 @@ async function col(name, filterField, filterValue) {
 
 const SUBTABS = [
   { id: 'theory', icon: 'menu_book', label: 'Теоретичні матеріали' },
-  { id: 'practice', icon: 'assignment', label: 'Практичні матеріали' },
   { id: 'plan', icon: 'checklist', label: 'План навчання' },
   { id: 'cards', icon: 'style', label: 'Флеш-картки' },
   { id: 'tests', icon: 'quiz', label: 'Тестування' },
@@ -49,7 +48,7 @@ export function renderEducation(container) {
   const render = async () => {
     clear(body).append(spinner());
     try {
-      const view = { theory: theoryTab, practice: practiceTab, plan: planTab, cards: cardsTab, tests: testsTab, trainers: trainersTab }[current];
+      const view = { theory: theoryTab, plan: planTab, cards: cardsTab, tests: testsTab, trainers: trainersTab }[current];
       const el = await view();
       if (current === (tabs.querySelector('.active')?.dataset.id)) clear(body).append(el);
     } catch (e) { clear(body).append(emptyState('error_outline', 'Помилка завантаження', e.message)); }
@@ -76,7 +75,50 @@ async function theoryTab() {
 }
 async function practiceTab() {
   const topics = await col('practical_topics');
-  return topicList(topics, 'assignment', 'Практичні завдання ще не додані', (t) => openTopic(t, 'practical_materials'));
+  return topicList(topics, 'assignment', 'Дні практики ще не додані', (t) => openTopic(t, 'practical_materials'));
+}
+
+// ── Окремий розділ «Практика» (нижня навігація) ─────────────────────────────
+// Усе для навчальної практики в одному місці: дні з тестом дня, аудіотест
+// «Сигнали практики», мої результати, план і залік за кодом сесії.
+export function renderPractice(container) {
+  const body = h('div', { class: 'list' }, spinner());
+  container.append(body);
+  buildPractice().then((el) => clear(body).append(el))
+    .catch((e) => clear(body).append(emptyState('error_outline', 'Помилка завантаження', e.message)));
+}
+
+async function buildPractice() {
+  const [days, signals] = await Promise.all([practiceTab(), waitForSignals()]);
+  const hasPracticeSignals = signalPool(signals, { tag: PRACTICE_TAG }).length >= 4;
+  const action = (ic, title, subtitle, color, onClick) => h('div', { class: 'tile', style: { cursor: 'pointer' }, onClick },
+    h('div', { style: { width: '44px', height: '44px', borderRadius: '12px', background: `${color}1f`, display: 'grid', placeItems: 'center', color } }, icon(ic)),
+    h('div', { class: 'grow' }, h('div', { class: 't' }, title), h('div', { class: 's' }, subtitle)),
+    icon('chevron_right'));
+  return h('div', {},
+    h('div', { class: 'sec-title', style: { marginTop: 0 } }, icon('assignment'), ' Дні практики'),
+    h('div', { class: 's', style: { color: 'var(--grey-600)', margin: '-4px 0 10px' } }, 'Відкрийте день — там матеріали і «Пробний тест дня».'),
+    days,
+    h('div', { class: 'sec-title' }, icon('quiz'), ' Тренування'),
+    hasPracticeSignals ? action('campaign', 'Сигнали практики', 'Аудіотест: впізнайте сигнал на слух', '#5D4037', () => startAudioTest({ tag: PRACTICE_TAG })) : null,
+    action('history', 'Мої результати', 'Останні 50 пробних тестів — для щоденника практики', '#5D4037', openMyResults),
+    action('checklist', 'План навчання', 'Тематичний план і години', '#2E7D32', openPlanScreen),
+    h('div', { class: 'sec-title' }, icon('school'), ' Залік'),
+    h('div', { class: 'tile', style: { flexDirection: 'column', alignItems: 'stretch', gap: '8px', borderLeft: '4px solid #1565C0' } },
+      h('div', { class: 'dk-row' },
+        h('div', { style: { width: '44px', height: '44px', borderRadius: '12px', background: '#1565C01f', display: 'grid', placeItems: 'center', color: '#1565C0' } }, icon('school')),
+        h('div', { class: 'grow' }, h('div', { class: 't' }, 'Іспит (залік)'), h('div', { class: 's' }, 'Введіть код сесії, який дасть викладач'))),
+      h('button', { class: 'btn', onClick: () => openExamEntry() }, 'Ввести код сесії')));
+}
+
+function openPlanScreen() {
+  pushScreen(({ pop }) => {
+    const body = h('div', { class: 'body-inner' }, spinner());
+    planTab().then((el) => clear(body).append(el))
+      .catch((e) => clear(body).append(emptyState('error_outline', 'Помилка завантаження', e.message)));
+    return h('div', { class: 'page', style: { background: 'var(--bg)' } },
+      appBar('План навчання', { back: pop, small: true }), h('div', { class: 'body' }, body));
+  });
 }
 
 const MATERIAL_TYPES = [
