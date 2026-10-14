@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:hunting_signals/models/education_models.dart';
 import 'package:hunting_signals/services/education_service.dart';
 import 'package:hunting_signals/screens/education_topic_screen.dart';
@@ -7,10 +6,8 @@ import 'package:hunting_signals/screens/flashcard_screen.dart';
 import 'package:hunting_signals/screens/test_screen.dart';
 import 'package:hunting_signals/screens/theory_practice_test_screen.dart';
 import 'package:hunting_signals/screens/my_quiz_results_screen.dart';
-import 'package:hunting_signals/services/exam_service.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:hunting_signals/screens/study_plan_screen.dart';
-import 'package:hunting_signals/screens/practical_tasks_screen.dart';
+import 'package:hunting_signals/screens/practice_screen.dart';
 import 'package:hunting_signals/theme/hunting_theme.dart';
 import 'package:hunting_signals/screens/trainers_screen.dart';
 
@@ -30,7 +27,7 @@ class _EducationScreenState extends State<EducationScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     _loadTopics();
   }
 
@@ -58,16 +55,18 @@ class _EducationScreenState extends State<EducationScreen>
             indicatorWeight: 3,
             labelColor: HuntingTheme.accentColor,
             unselectedLabelColor: Colors.white60,
-            labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
+            labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+            unselectedLabelStyle: const TextStyle(fontSize: 12),
+            labelPadding: const EdgeInsets.symmetric(horizontal: 2),
+            // Усі 5 вкладок умістились на екрані (раніше «Тестування» й
+            // «Тренажери» ховалися за краєм прокручуваного рядка).
+            isScrollable: false,
             tabs: const [
-              Tab(icon: Icon(Icons.menu_book_rounded, size: 20), text: 'Теоретичні матеріали'),
-              Tab(icon: Icon(Icons.assignment_rounded, size: 20), text: 'Практичні матеріали'),
-              Tab(icon: Icon(Icons.checklist_rounded, size: 20), text: 'План навчання'),
-              Tab(icon: Icon(Icons.style_rounded, size: 20), text: 'Флеш-картки'),
-              Tab(icon: Icon(Icons.quiz_rounded, size: 20), text: 'Тестування'),
-              Tab(icon: Icon(Icons.fitness_center_rounded, size: 20), text: 'Навчальні тренажери'),
+              Tab(icon: Icon(Icons.menu_book_rounded, size: 20), text: 'Теорія'),
+              Tab(icon: Icon(Icons.checklist_rounded, size: 20), text: 'План'),
+              Tab(icon: Icon(Icons.style_rounded, size: 20), text: 'Картки'),
+              Tab(icon: Icon(Icons.quiz_rounded, size: 20), text: 'Тести'),
+              Tab(icon: Icon(Icons.fitness_center_rounded, size: 20), text: 'Тренажери'),
             ],
           ),
         ),
@@ -87,7 +86,6 @@ class _EducationScreenState extends State<EducationScreen>
                         emptyHint: 'Адмін ще не додав теми',
                         onRefresh: () { setState(() => _loading = true); _loadTopics(); },
                       ),
-                      const PracticalTasksScreen(),
                       const StudyPlanScreen(),
                       _TopicList(
                         topics: _topics,
@@ -342,7 +340,7 @@ class _TestingHub extends StatelessWidget {
             color: const Color(0xFF1C3A1C),
           ),
           const SizedBox(height: 12),
-          const _ExamOnSiteCard(),
+          const ExamOnSiteCard(),
         ],
       ),
     );
@@ -468,72 +466,6 @@ class _BigCard extends StatelessWidget {
       ]),
     ),
   );
-}
-
-/// Іспит у додатку не проводиться (ТЗ практики, розділ 7): спроби, таймер і
-/// автозбереження реалізовані лише на сайті, тож тут — повідомлення й посилання.
-class _ExamOnSiteCard extends StatelessWidget {
-  const _ExamOnSiteCard();
-
-  Future<void> _open(BuildContext context) async {
-    final ok = await launchUrl(Uri.parse(ExamService.siteExamUrl), mode: LaunchMode.externalApplication);
-    if (!ok && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Не вдалося відкрити браузер. Відкрийте ${ExamService.siteUrl} вручну')),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1C3A1C),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 8,
-            offset: const Offset(0, 4))],
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Іспит проходьте на сайті',
-            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 6),
-        SelectableText(ExamService.siteUrl.replaceFirst('https://', ''),
-            style: const TextStyle(color: Color(0xFFD4A017), fontSize: 15, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 8),
-        const Text('Увійдіть тим самим акаунтом, відкрийте «Навчання» → «Тестування» → «Іспит» і введіть код сесії від викладача.',
-            style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.35)),
-        const SizedBox(height: 14),
-        Row(children: [
-          Expanded(
-            child: ElevatedButton.icon(
-              onPressed: () => _open(context),
-              icon: const Icon(Icons.open_in_browser_rounded),
-              label: const Text('Відкрити сайт'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFD4A017),
-                foregroundColor: Colors.black87,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          IconButton(
-            tooltip: 'Скопіювати посилання',
-            onPressed: () {
-              Clipboard.setData(const ClipboardData(text: ExamService.siteExamUrl));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Посилання скопійовано')),
-              );
-            },
-            icon: const Icon(Icons.copy_rounded, color: Colors.white70),
-          ),
-        ]),
-      ]),
-    );
-  }
 }
 
 // ── Кнопка на картці ─────────────────────────────────────────────────────────

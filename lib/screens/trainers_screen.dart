@@ -55,29 +55,30 @@ class _TrainersScreenState extends State<TrainersScreen> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // ── Внутрішні вкладки ──
-        SizedBox(
-          height: 52,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            itemCount: _trainers.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
-            itemBuilder: (context, i) {
-              final t = _trainers[i];
-              final selected = i == _current;
-              return ChoiceChip(
-                avatar: Icon(t.icon, size: 18, color: selected ? HuntingTheme.primaryDark : Colors.grey[700]),
-                label: Text(t.label),
-                selected: selected,
-                selectedColor: HuntingTheme.primaryColor.withValues(alpha: 0.2),
-                labelStyle: TextStyle(
-                  color: selected ? HuntingTheme.primaryDark : Colors.grey[700],
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-                ),
-                onSelected: (_) => setState(() => _current = i),
-              );
-            },
+        // ── Внутрішні вкладки (переносяться, щоб усі 5 було видно) ──
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+          child: SizedBox(
+            width: double.infinity,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                for (var i = 0; i < _trainers.length; i++)
+                  ChoiceChip(
+                    avatar: Icon(_trainers[i].icon, size: 18, color: i == _current ? HuntingTheme.primaryDark : Colors.grey[700]),
+                    label: Text(_trainers[i].label),
+                    selected: i == _current,
+                    selectedColor: HuntingTheme.primaryColor.withValues(alpha: 0.2),
+                    labelStyle: TextStyle(
+                      color: i == _current ? HuntingTheme.primaryDark : Colors.grey[700],
+                      fontWeight: i == _current ? FontWeight.w600 : FontWeight.normal,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                    onSelected: (_) => setState(() => _current = i),
+                  ),
+              ],
+            ),
           ),
         ),
         Expanded(

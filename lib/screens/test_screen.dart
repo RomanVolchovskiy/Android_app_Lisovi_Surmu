@@ -26,7 +26,10 @@ class _AudioQuestion {
 class TestScreen extends StatefulWidget {
   final String? difficulty;
 
-  const TestScreen({super.key, this.difficulty});
+  /// Тег сигналів (напр. 'практика' — «Сигнали практики», як на сайті).
+  final String? tag;
+
+  const TestScreen({super.key, this.difficulty, this.tag});
 
   @override
   State<TestScreen> createState() => _TestScreenState();
@@ -98,9 +101,11 @@ class _TestScreenState extends State<TestScreen> {
       return;
     }
 
-    final filtered = widget.difficulty == null
-        ? withAudio
-        : withAudio.where((s) => s.difficulty == widget.difficulty).toList();
+    final filtered = widget.tag != null
+        ? withAudio.where((s) => s.tags?.contains(widget.tag) ?? false).toList()
+        : widget.difficulty == null
+            ? withAudio
+            : withAudio.where((s) => s.difficulty == widget.difficulty).toList();
 
     if (filtered.isEmpty) {
       if (mounted) setState(() => _loading = false);
@@ -111,8 +116,9 @@ class _TestScreenState extends State<TestScreen> {
     final testSignals = List<HuntingSignal>.from(filtered)..shuffle(rng);
     final picked = testSignals.take(_kTestCount).toList();
 
-    // Use all signals with audio for wrong-answer pool so there are always enough options
-    final allNames = withAudio.map((s) => s.name).toList();
+    // Хибні варіанти — з того самого набору, якщо в ньому ≥ 4 сигнали
+    // (як на сайті), інакше з усіх сигналів з аудіо.
+    final allNames = (filtered.length >= 4 ? filtered : withAudio).map((s) => s.name).toList();
 
     final questions = picked.map((signal) {
       // 3 неправильні назви (відмінні від правильної)
@@ -195,11 +201,11 @@ class _TestScreenState extends State<TestScreen> {
     } else {
       _timer?.cancel();
       setState(() => _finished = true);
-      final d = widget.difficulty;
+      final d = widget.difficulty, tag = widget.tag;
       QuizResultsService.save(
         kind: 'audio',
-        topicName: d == null ? 'усі сигнали' : QuizResultsService.audioLevelNames[d] ?? d,
-        audioFilter: d ?? 'all',
+        topicName: tag != null ? 'сигнали практики' : d == null ? 'усі сигнали' : QuizResultsService.audioLevelNames[d] ?? d,
+        audioFilter: tag != null ? 'tag:$tag' : d ?? 'all',
         correct: _score,
         total: _questions.length,
       );
@@ -223,6 +229,7 @@ class _TestScreenState extends State<TestScreen> {
   }
 
   String _difficultyLabel() {
+    if (widget.tag != null) return '📯 Сигнали практики';
     switch (widget.difficulty) {
       case 'easy':   return '🟢 Легкий рівень';
       case 'medium': return '🟡 Середній рівень';

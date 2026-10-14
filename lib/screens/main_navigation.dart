@@ -4,6 +4,7 @@ import 'package:hunting_signals/screens/categories_screen.dart';
 import 'package:hunting_signals/screens/events_screen.dart';
 import 'package:hunting_signals/screens/education_screen.dart';
 import 'package:hunting_signals/screens/favorites_screen.dart';
+import 'package:hunting_signals/screens/practice_screen.dart';
 import 'package:hunting_signals/theme/hunting_theme.dart';
 import 'package:hunting_signals/models/access_models.dart';
 import 'package:hunting_signals/screens/account_screen.dart';
@@ -26,8 +27,9 @@ class _MainNavigationState extends State<MainNavigation> {
     switch (_currentIndex) {
       case 0: return CategoriesScreen(key: ValueKey(_categoriesRefreshToken));
       case 1: return const EducationScreen();
-      case 2: return const EventsScreen();
-      case 3: return const FavoritesScreen();
+      case 2: return const PracticeScreen();
+      case 3: return const EventsScreen();
+      case 4: return const FavoritesScreen();
       default: return CategoriesScreen(key: ValueKey(_categoriesRefreshToken));
     }
   }
@@ -35,18 +37,28 @@ class _MainNavigationState extends State<MainNavigation> {
   final List<String> _titles = [
     'Мисливські Сигнали',
     'Навчальні Матеріали',
+    'Навчальна практика',
     'Мисливські події',
     'Обрані Сигнали',
   ];
 
-  // Екрани для iOS-вкладок — у порядку CupertinoTabBar нижче
-  // (Сигнали, Події, Навчання, Обране).
+  // Екрани й заголовки для iOS-вкладок — у порядку CupertinoTabBar нижче
+  // (Сигнали, Події, Навчання, Практика, Обране).
   List<Widget> get _screens => [
         CategoriesScreen(key: ValueKey(_categoriesRefreshToken)),
         const EventsScreen(),
         const EducationScreen(),
+        const PracticeScreen(),
         const FavoritesScreen(),
       ];
+
+  static const _iosTitles = [
+    'Мисливські Сигнали',
+    'Мисливські події',
+    'Навчальні Матеріали',
+    'Навчальна практика',
+    'Обрані Сигнали',
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -125,6 +137,11 @@ class _MainNavigationState extends State<MainNavigation> {
             label: 'Навчання',
           ),
           BottomNavigationBarItem(
+            icon: Icon(CupertinoIcons.doc_checkmark),
+            activeIcon: Icon(CupertinoIcons.doc_checkmark_fill),
+            label: 'Практика',
+          ),
+          BottomNavigationBarItem(
             icon: Icon(CupertinoIcons.heart),
             activeIcon: Icon(CupertinoIcons.heart_fill),
             label: 'Обране',
@@ -137,7 +154,7 @@ class _MainNavigationState extends State<MainNavigation> {
             return CupertinoPageScaffold(
               navigationBar: CupertinoNavigationBar(
                 middle: Text(
-                  _titles[index],
+                  _iosTitles[index],
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                   ),
@@ -349,6 +366,10 @@ class _MainNavigationState extends State<MainNavigation> {
             BottomNavigationBarItem(
               icon: Icon(Icons.school, size: 24),
               label: 'Навчання',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.assignment, size: 24),
+              label: 'Практика',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.event, size: 24),

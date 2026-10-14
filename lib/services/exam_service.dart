@@ -10,7 +10,7 @@ class ExamService {
   static final _db = FirebaseFirestore.instance;
 
   static const siteUrl = 'https://lisovi-surmy.vercel.app';
-  static const siteExamUrl = '$siteUrl/#/education';
+  static const siteExamUrl = '$siteUrl/#/practice';
 
   static const _sessionsCol    = 'exam_sessions';
   static const _submissionsCol = 'exam_submissions';
