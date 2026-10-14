@@ -292,6 +292,12 @@ input[type=range].gold { width: 100%; accent-color: var(--gold); }
 .subtabs.scroll { overflow-x: auto; scrollbar-width: none; justify-content: flex-start; }
 .subtabs.scroll button { flex: none; padding: 12px 14px; }
 .subtabs .mi { font-size: 20px; }
+/* Вкладки «Навчання» на телефоні: сітка 3×2 замість прокрутки, щоб усі (зокрема «Тренажери») було видно */
+.subtabs.wrap-sm button { padding: 12px 12px; }
+@media (max-width: 1000px) {
+  .subtabs.wrap-sm { display: grid; grid-template-columns: repeat(3, 1fr); overflow: visible; }
+  .subtabs.wrap-sm button { flex-direction: column; gap: 2px; padding: 8px 4px 6px; font-size: 12px; line-height: 1.2; text-align: center; }
+}
 .tile { background: #fff; border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0, 0, 0, .12); display: flex; align-items: center; gap: 12px; }
 .tile .t { font-weight: 600; font-size: 15px; }
 .tile .s { color: var(--grey-600); font-size: 12px; margin-top: 2px; }

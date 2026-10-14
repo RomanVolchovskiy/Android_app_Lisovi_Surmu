@@ -44,7 +44,7 @@ const SUBTABS = [
 export function renderEducation(container) {
   let current = 'theory';
   const body = h('div', { class: 'list' });
-  const tabs = h('div', { class: 'subtabs scroll' }, SUBTABS.map((t) => h('button', { class: t.id === current ? 'active' : '', 'data-id': t.id, onClick: () => set(t.id) }, icon(t.icon), t.label)));
+  const tabs = h('div', { class: 'subtabs scroll wrap-sm' }, SUBTABS.map((t) => h('button', { class: t.id === current ? 'active' : '', 'data-id': t.id, onClick: () => set(t.id) }, icon(t.icon), t.label)));
   const set = (id) => { current = id; [...tabs.children].forEach((b) => b.classList.toggle('active', b.dataset.id === id)); render(); };
   const render = async () => {
     clear(body).append(spinner());
@@ -410,7 +410,7 @@ const TRAINERS = [
 async function trainersTab() {
   let current = TRAINERS[0].id;
   const body = h('div');
-  const chips = h('div', { class: 'chips', style: { padding: '0 0 8px', height: 'auto' } },
+  const chips = h('div', { class: 'chips', style: { padding: '0 0 8px', height: 'auto', flexWrap: 'wrap', overflow: 'visible', gap: '8px' } },
     TRAINERS.map((t) => h('button', { class: `chip ${t.id === current ? 'selected' : ''}`, 'data-id': t.id, onClick: () => set(t.id) }, icon(t.icon), t.label)));
   const set = (id) => {
     current = id;
