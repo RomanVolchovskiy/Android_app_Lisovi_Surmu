@@ -72,7 +72,7 @@ test('importId і bySortOrder: порядок рядків файлу збері
 
 const DIR = process.env.PRACTICE_TESTS_DIR || 'D:/HuntingSignals/practice_docs/docs/practice/tests';
 test('файли практики імпортуються повністю', { skip: !existsSync(DIR) && 'немає папки з CSV практики' }, () => {
-  const expect = { '01_prakt_t1.csv': 9, '02_prakt_t2.csv': 8, '03_prakt_t3.csv': 10, '04_prakt_t4.csv': 6,
+  const expect = { '01_prakt_t1.csv': 12, '02_prakt_t2.csv': 12, '03_prakt_t3.csv': 10, '04_prakt_t4.csv': 12,
     '05_prakt_t5.csv': 11, '06_prakt_t6.csv': 12, '07_prakt_final.csv': 20, '08_flashcards_glossary.csv': 30 };
   for (const f of readdirSync(DIR).filter((x) => x.endsWith('.csv'))) {
     const text = readFileSync(join(DIR, f), 'utf8');
