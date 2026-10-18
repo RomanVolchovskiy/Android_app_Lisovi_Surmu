@@ -136,7 +136,7 @@ class _PracticeStepScreenState extends State<PracticeStepScreen> {
         final bytes = await read();
         added.add(await PracticeService.uploadStepFile(step.id, name, bytes));
       } catch (e) {
-        final msg = e.toString().contains('unauthorized') ? 'Немає доступу до сховища (підтвердіть пошту)' : e.toString().replaceFirst('Exception: ', '');
+        final msg = e.toString().contains('unauthorized') ? 'Сховище не прийняло файл (немає доступу). Повідомте викладача' : e.toString().replaceFirst('Exception: ', '');
         if (mounted) _toast(msg, error: true);
       }
     }

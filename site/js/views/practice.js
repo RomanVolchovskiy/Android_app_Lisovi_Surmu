@@ -218,7 +218,7 @@ const KINDS = {
       const added = [];
       for (const [i, f] of picked.entries()) {
         status.textContent = `Завантаження ${i + 1} з ${picked.length}: ${f.name}…`;
-        try { added.push(await uploadStepFile(step.id, f)); } catch (e) { toast(e.code === 'storage/unauthorized' ? 'Немає доступу до сховища (підтвердіть пошту)' : e.message, 'err', 6000); }
+        try { added.push(await uploadStepFile(step.id, f)); } catch (e) { toast(e.code === 'storage/unauthorized' ? 'Сховище не прийняло файл (немає доступу). Повідомте викладача' : e.message, 'err', 6000); }
       }
       status.textContent = '';
       if (added.length) await persist({ steps: { [step.id]: { ...s, files: [...files, ...added] } } }, redraw, `Додано файлів: ${added.length}`);
