@@ -6,6 +6,7 @@ import { h, icon, toast, clear, emptyState, pushScreen, appBar, spinner, pickFil
 import {
   STAGES, stepStatus, totals, nextStep, MAX_CURRENT, MAX_EXAM, ADMISSION_MIN,
   BREATH_DATES, BREATH_EXERCISES, DIARY_FIELDS, TRACKED_SIGNALS, SIGNAL_SKILLS, bestByTopic,
+  diaryDone, breathDone, signalsDone,
 } from '../practice-core.js';
 import { loadMyPractice, saveWork, uploadStepFile, deleteStepFile, FILE_ACCEPT } from '../practice-data.js';
 import {
@@ -83,6 +84,10 @@ export function signalsView(table = {}) {
 
 let state = null;     // { uid, profile, work, grades, ctx, days }
 let rerender = null;
+// Відкриті екрани автоматичних кроків (тести, аудіо, іспит, «Мої дані»):
+// після повернення з тесту їх треба перемалювати разом зі списком.
+const AUTO_KINDS = ['profile', 'quiz', 'retest', 'audio', 'exam'];
+const autoStepDraws = new Set();
 
 export function renderPractice(container) {
   const body = h('div', { class: 'list' }, spinner());
@@ -94,12 +99,14 @@ export function renderPractice(container) {
       if (!alive) return;
       state = { ...data, days };
       draw();
+      autoStepDraws.forEach((d) => d());
     } catch (e) { if (alive) clear(body).append(emptyState('error_outline', 'Помилка завантаження', e.message)); }
   };
   const draw = () => clear(body).append(buildMain());
   rerender = draw;
   // після тесту, іспиту, «Мій акаунт» тощо — оновити автоматичні статуси
-  const off = onScreenClosed((depth) => { if (depth === 0 && alive) load(); });
+  // (і в списку, і на відкритому екрані такого кроку)
+  const off = onScreenClosed((depth) => { if (alive && (depth === 0 || autoStepDraws.size)) load(); });
   load();
   return () => { alive = false; off(); rerender = null; };
 }
@@ -154,18 +161,22 @@ function openStep(step) {
     const body = h('div', { class: 'body-inner' });
     const draw = () => clear(body).append(...stepContent(step, draw));
     draw();
+    if (AUTO_KINDS.includes(step.kind)) {
+      autoStepDraws.add(draw);
+      ctx.onPop = () => autoStepDraws.delete(draw);
+    }
     return h('div', { class: 'page', style: { background: 'var(--bg)' } },
       appBar(step.title, { back: ctx.pop, small: true }), h('div', { class: 'body' }, body));
   });
 }
 
 /** Зберегти й перемалювати і крок, і головний список. */
-async function persist(patch, redraw, okText = 'Збережено') {
+async function persist(patch, redraw, okText = 'Збережено', okKind = 'ok', ms) {
   try {
     await saveWork(patch, state.profile);
     // локально — та сама зміна (merge одного рівня глибини, як у Firestore)
     for (const [k, v] of Object.entries(patch)) state.work[k] = { ...(state.work[k] || {}), ...v };
-    toast(okText, 'ok');
+    toast(okText, okKind, ms);
   } catch (e) { toast(`Не збережено: ${e.code === 'permission-denied' ? 'база не прийняла запис (немає доступу). Повідомте викладача' : e.message}`, 'err', 5000); }
   redraw(); rerender?.();
 }
@@ -187,8 +198,12 @@ function stepContent(step, redraw) {
   return out;
 }
 
-// щоденник і таблиці перевіряє викладач
+// щоденник і таблиці перевіряє викладач — але лише заповнені повністю;
+// неповні зберігаються як чернетка, і студент має знати, чого бракує
 const SAVED = 'Збережено — викладач підтвердить';
+const saveTable = (patch, redraw, complete, missing) => (complete
+  ? persist(patch, redraw, SAVED)
+  : persist(patch, redraw, `Збережено як чернетку. ${missing} — тоді запис піде викладачу на підтвердження`, '', 7000));
 
 const KINDS = {
   profile: () => h('button', { class: 'btn block', onClick: () => openAccount() }, icon('person'), 'Відкрити «Мій акаунт» → «Мої дані»'),
@@ -196,7 +211,7 @@ const KINDS = {
   check: (step, st, redraw) => {
     const s = state.work.steps?.[step.id] || {};
     return [
-      step.action?.type === 'metronome' ? h('button', { class: 'btn text block', style: { marginBottom: '8px', border: '1px solid var(--primary)' }, onClick: () => openMetronome() }, icon('timer'), 'Відкрити метроном') : null,
+      step.action?.type === 'metronome' ? h('button', { class: 'btn text block', style: { marginBottom: '8px', border: '1px solid var(--primary)' }, onClick: () => openMetronome({ bpm: step.action.bpm }) }, icon('timer'), 'Відкрити метроном') : null,
       step.action?.type === 'cards' ? h('button', { class: 'btn text block', style: { marginBottom: '8px', border: '1px solid var(--primary)' }, onClick: openCards }, icon('style'), 'Флеш-картки') : null,
       st.state === 'graded' ? null
         : st.state === 'review'
@@ -265,7 +280,8 @@ const KINDS = {
       ...inputs.map(([, el]) => el),
       h('button', { class: 'btn block', onClick: () => {
         const val = Object.fromEntries(inputs.map(([k, el]) => [k, el.querySelector('textarea').value.trim()]));
-        persist({ diary: { [`d${step.day}`]: val }, steps: { [step.id]: { submittedAt: Date.now() } } }, redraw, SAVED);
+        saveTable({ diary: { [`d${step.day}`]: val }, steps: { [step.id]: { submittedAt: Date.now() } } }, redraw,
+          diaryDone(val), 'Заповніть усі три поля');
       } }, icon('save'), 'Зберегти запис'),
     ];
   },
@@ -285,7 +301,8 @@ const KINDS = {
           rows.map((r) => r.el))),
       h('button', { class: 'btn block', onClick: () => {
         const val = Object.fromEntries(rows.map((r) => [r.d, { ex: r.boxes.map((b) => b.checked), sec: r.sec.value === '' ? null : Number(r.sec.value) }]));
-        persist({ breath: val, steps: { [step.id]: { submittedAt: Date.now() } } }, redraw, SAVED);
+        saveTable({ breath: val, steps: { [step.id]: { submittedAt: Date.now() } } }, redraw,
+          breathDone(val), `Відмітьте хоча б одну вправу за кожен із ${BREATH_DATES.length} днів`);
       } }, icon('save'), 'Зберегти таблицю'),
     ];
   },
@@ -300,7 +317,8 @@ const KINDS = {
           rows.map((r) => h('tr', {}, h('td', { style: { padding: '4px 0' } }, r.s), r.boxes.map(([, b]) => h('td', { style: { textAlign: 'center' } }, b)))))),
       h('button', { class: 'btn block', onClick: () => {
         const val = Object.fromEntries(rows.map((r) => [r.s, Object.fromEntries(r.boxes.map(([k, b]) => [k, b.checked]))]));
-        persist({ signals: val, steps: { [step.id]: { submittedAt: Date.now() } } }, redraw, SAVED);
+        saveTable({ signals: val, steps: { [step.id]: { submittedAt: Date.now() } } }, redraw,
+          signalsDone(val), 'Для кожного сигналу відмітьте хоча б одну навичку');
       } }, icon('save'), 'Зберегти'),
     ];
   },

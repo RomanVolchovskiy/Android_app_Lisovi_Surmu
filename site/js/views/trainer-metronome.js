@@ -22,13 +22,14 @@ function loadSettings() {
   try { return { ...JSON.parse(localStorage.getItem(STORAGE) || '{}') }; } catch { return {}; }
 }
 
-export function openMetronome() {
+/** opts.bpm — стартовий темп (напр., з кроку практики «♩ = 80»), інакше збережений. */
+export function openMetronome(opts = {}) {
   pushScreen((ctx) => {
     const { pop, el: screen } = ctx;
     screen.classList.add('dark');
     const saved = loadSettings();
     const st = {
-      bpm: saved.bpm ?? 90,
+      bpm: opts.bpm ?? saved.bpm ?? 90,
       sig: SIGNATURES.includes(saved.sig) ? saved.sig : '4/4',
       sub: [1, 2, 3, 4].includes(saved.sub) ? saved.sub : 1,
       volume: saved.volume ?? 0.8,
