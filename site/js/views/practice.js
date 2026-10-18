@@ -166,7 +166,7 @@ async function persist(patch, redraw, okText = 'Збережено') {
     // локально — та сама зміна (merge одного рівня глибини, як у Firestore)
     for (const [k, v] of Object.entries(patch)) state.work[k] = { ...(state.work[k] || {}), ...v };
     toast(okText, 'ok');
-  } catch (e) { toast(`Не збережено: ${e.code === 'permission-denied' ? 'немає доступу (підтвердіть пошту)' : e.message}`, 'err', 5000); }
+  } catch (e) { toast(`Не збережено: ${e.code === 'permission-denied' ? 'база не прийняла запис (немає доступу). Повідомте викладача' : e.message}`, 'err', 5000); }
   redraw(); rerender?.();
 }
 

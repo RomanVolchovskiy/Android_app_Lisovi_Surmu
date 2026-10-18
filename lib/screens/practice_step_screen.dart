@@ -115,7 +115,7 @@ class _PracticeStepScreenState extends State<PracticeStepScreen> {
       if (mounted) _toast(okText);
     } catch (e) {
       final denied = e.toString().contains('permission-denied');
-      if (mounted) _toast('Не збережено: ${denied ? 'немає доступу (підтвердіть пошту)' : e}', error: true);
+      if (mounted) _toast('Не збережено: ${denied ? 'база не прийняла запис (немає доступу). Повідомте викладача' : e}', error: true);
     }
     if (mounted) setState(() => _busy = false);
   }
